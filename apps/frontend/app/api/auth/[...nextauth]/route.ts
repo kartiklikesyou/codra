@@ -4,36 +4,43 @@ import GoogleProvider from "next-auth/providers/google";
 import GitHubProvider from "next-auth/providers/github";
 
 const handler = NextAuth({
+    secret: process.env.NEXTAUTH_SECRET,
     providers: [
-  CredentialsProvider({
+    CredentialsProvider({
     name: "Credentials",
     credentials: {
       email: { label: "Email", type: "text", placeholder: "jsmith@example.com" },
       password: { label: "Password", type: "password" }
     },
     async authorize(credentials) {
-        const email = credentials?.email
-        const password = credentials?.password
-        const user = { id: "1", name: "J Smith", email: "jsmith@example.com" }
-
-        if (user) {
-            return user
-        } else {
-            return null
+        const response = await fetch("http://localhost:8080/signin",{
+            method : "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+            email: credentials?.email,
+            password: credentials?.password,
+            })
+        })
+        if (!response.ok) {
+            return null;
         }
+        const user = await response.json();
+        return user;
     }
-  }),
+    }),
 
-  GoogleProvider({
-    clientId: process.env.AUTH_GOOGLE_ID!,
-    clientSecret: process.env.AUTH_GOOGLE_SECRET!,
-  }),
+    GoogleProvider({
+        clientId: process.env.AUTH_GOOGLE_ID!,
+        clientSecret: process.env.AUTH_GOOGLE_SECRET!,
+    }),
 
-  GitHubProvider({
-    clientId: process.env.AUTH_GITHUB_ID!,
-    clientSecret: process.env.AUTH_GITHUB_SECRET!
-  })
-]
+    GitHubProvider({
+        clientId: process.env.AUTH_GITHUB_ID!,
+        clientSecret: process.env.AUTH_GITHUB_SECRET!
+    })
+    ],
 })
 
 export { handler as GET, handler as POST }

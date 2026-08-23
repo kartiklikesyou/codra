@@ -27,6 +27,7 @@
     "packages/*"
   ],
   "dependencies": {
-    "db": "^1.0.0"
+    "db": "^1.0.0",
+    "next-auth": "^4.24.15"
   }
 }

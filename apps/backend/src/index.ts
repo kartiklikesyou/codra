@@ -16,16 +16,16 @@ app.get("/users", (req, res) => {
 })
 
 app.post("/user", (req, res) => {
-  const { username, password } = req.body;
+  const { email, password } = req.body;
   
-  if (!username || !password) {
-    res.status(400).json({ error: "Username and password are required" });
+  if (!email || !password) {
+    res.status(400).json({ error: "email and password are required" });
     return
   }
 
   prismaClient.user.create({
     data: {
-      username,
+      email,
       password
     }
   })

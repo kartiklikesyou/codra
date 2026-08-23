@@ -27,6 +27,7 @@
     "packages/*"
   ],
   "dependencies": {
+    "@next-auth/prisma-adapter": "^1.0.7",
     "db": "^1.0.0",
     "next-auth": "^4.24.15"
   }

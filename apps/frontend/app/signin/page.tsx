@@ -11,44 +11,44 @@ import { AuthErrorAlert } from "@/components/auth/auth-error-alert";
 import { SpinnerIcon } from "@/components/auth/icons";
 
 export default function SigninPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [error, setError] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const router = useRouter();
 
-  async function handleSignin(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (isLoading) return;
+    async function handleSignin(e: React.FormEvent<HTMLFormElement>) {
+        e.preventDefault();
+        if (isLoading) return;
 
-    if (!email.trim() || !password) {
-      setError("Please enter both email and password.");
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const res = await signIn("credentials", {
-        email: email.trim(),
-        password,
-        redirect: false,
-      });
-
-      if (!res || res.error || !res.ok) {
-        setError("Invalid email or password. Please try again.");
-        setIsLoading(false);
+        if (!email.trim() || !password) {
+        setError("Please enter both email and password.");
         return;
-      }
+        }
 
-      router.push("/");
-      router.refresh();
-    } catch (err) {
-      console.error("Sign in error:", err);
-      setError("An unexpected error occurred. Please try again.");
-      setIsLoading(false);
-    }
+        try {
+        setIsLoading(true);
+        setError(null);
+
+        const res = await signIn("credentials", {
+            email: email.trim(),
+            password,
+            redirect: false,
+        });
+
+        if (!res || res.error || !res.ok) {
+            setError("Invalid email or password. Please try again.");
+            setIsLoading(false);
+            return;
+        }
+
+        router.push("/");
+        router.refresh();
+        } catch (err) {
+        console.error("Sign in error:", err);
+        setError("An unexpected error occurred. Please try again.");
+        setIsLoading(false);
+        }
   }
 
   return (

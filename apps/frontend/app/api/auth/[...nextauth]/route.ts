@@ -2,8 +2,11 @@ import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import GitHubProvider from "next-auth/providers/github";
+import { PrismaAdapter } from "@next-auth/prisma-adapter";
+import { prismaClient } from "db";
 
 const handler = NextAuth({
+    adapter: PrismaAdapter(prismaClient),
     secret: process.env.NEXTAUTH_SECRET,
     providers: [
     CredentialsProvider({

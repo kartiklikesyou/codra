@@ -81,7 +81,7 @@ export function Pricing() {
                   )}
                 </div>
 
-                <p className="text-xs text-zinc-400 mb-6 min-h-[32px]">{tier.description}</p>
+                <p className="text-xs text-zinc-400 mb-6 min-h-32px">{tier.description}</p>
 
                 <div className="flex items-baseline gap-1 mb-6">
                   <span className="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-100">

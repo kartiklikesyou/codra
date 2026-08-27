@@ -1,6 +1,7 @@
 import express from "express";
 import { prismaClient } from "db";
 import cors from "cors";
+import  projectRoutes from "./routes/project"
 
 const app = express();
 
@@ -11,6 +12,8 @@ app.use(
 );
 
 app.use(express.json());
+
+app.use("/api/projects",projectRoutes)
 
 app.get("/users", (req, res) => {
   prismaClient.user.findMany()

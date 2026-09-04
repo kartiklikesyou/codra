@@ -63,7 +63,7 @@ export default function SignupPage() {
       });
 
       if (signInRes?.ok && !signInRes.error) {
-        router.push("/");
+        router.push("/dashboard");
         router.refresh();
       } else {
         // If automatic login doesn't complete, redirect to signin

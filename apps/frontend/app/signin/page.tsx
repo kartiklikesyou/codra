@@ -18,6 +18,7 @@ export default function SigninPage() {
     const router = useRouter(); 
 
     async function handleSignin(e: React.FormEvent<HTMLFormElement>) {
+      console.log("HANDLE SIGNIN CALLED");
         e.preventDefault();
         if (isLoading) return;
 
@@ -35,6 +36,7 @@ export default function SigninPage() {
             password,
             redirect: false,
         });
+        console.log("SIGNIN RESPONSE:", res);
 
         if (!res || res.error || !res.ok) {
             setError("Invalid email or password. Please try again.");
@@ -42,7 +44,7 @@ export default function SigninPage() {
             return;
         }
 
-        router.push("/");
+        router.push("/dashboard");
         router.refresh();
         } catch (err) {
         console.error("Sign in error:", err);

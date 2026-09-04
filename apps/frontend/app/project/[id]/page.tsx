@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { INITIAL_PROJECTS, Project } from "@/components/dashboard/mock-data";
 import { GitHubIcon } from "@/components/auth/icons";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   FolderTree,
@@ -16,6 +17,10 @@ import {
 } from "lucide-react";
 
 export default function ProjectWorkspacePage() {
+  const searchParams = useSearchParams();
+  const previewUrl = searchParams.get("previewUrl");
+  console.log("Search params:", searchParams.toString());
+  console.log("Preview URL:", previewUrl);
   const params = useParams();
   const projectId = params?.id as string;
 
@@ -40,20 +45,59 @@ export default function ProjectWorkspacePage() {
     },
   ]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!chatPrompt.trim()) return;
+    if(!chatPrompt.trim()) return
 
-    const userMsg = chatPrompt.trim();
-    setChatPrompt("");
-    setMessages((prev) => [
+    const userMsg = chatPrompt.trim()
+    setChatPrompt("")
+
+    setMessages((prev)=>[
       ...prev,
-      { sender: "user", text: userMsg },
       {
-        sender: "agent",
-        text: `Synthesizing code for: "${userMsg}"...`,
+        sender:"user", text : userMsg
       },
-    ]);
+      {
+        sender : "agent", text : `Synthesizing code for ${userMsg}`
+      }
+    ])
+
+    try{
+      const response = await fetch("http://localhost:8080/website-test",{
+        method : "POST",
+        headers : {
+          "Content-Type": "application/json"
+        },
+        body : JSON.stringify({
+          prompt : userMsg
+        })
+      })
+
+      if(!response.ok){
+        throw new Error("Website Generation Failed")
+      }
+
+      const data = await response.json()
+
+      setMessages((prev)=>[
+        ...prev,
+        {
+          sender : "agent",
+          text : data.message
+        }
+      ])
+
+      console.log("Preview Url", data.previewUrl)
+    }catch(e){
+      console.log(e)
+      setMessages((prev)=>[
+        ...prev,
+        {
+          sender : "agent",
+          text : "Something went wrong while generating the website"
+        }
+      ])
+    }
   };
 
   return (
@@ -184,13 +228,18 @@ export default function ProjectWorkspacePage() {
               </div>
 
               {/* Canvas View */}
-              <div className="flex-1 rounded-b-lg border border-zinc-800 bg-[#0a0a0d] p-6 overflow-y-auto flex flex-col items-center justify-center text-center space-y-3">
-                <h3 className="text-lg font-medium text-white tracking-tight">
-                  {project.name}
-                </h3>
-                <p className="text-xs text-zinc-500 max-w-sm">
-                  {project.description}
-                </p>
+              <div className="flex-1 rounded-b-lg border border-zinc-800 bg-white overflow-hidden">
+                {previewUrl ? (
+                  <iframe
+                    src={previewUrl}
+                    title={`${project.name} Preview`}
+                    className="h-full w-full border-0"
+                  />
+                  ) : (
+                  <div className="flex h-full items-center justify-center text-zinc-500">
+                    No preview available.
+                  </div>
+                )}
               </div>
             </div>
           ) : (

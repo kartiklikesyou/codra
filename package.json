@@ -27,8 +27,12 @@
     "packages/*"
   ],
   "dependencies": {
+    "@ai-sdk/google": "^4.0.63",
+    "@ai-sdk/openai": "^4.0.57",
     "@next-auth/prisma-adapter": "^1.0.7",
+    "ai": "^7.0.91",
     "db": "^1.0.0",
+    "e2b": "^2.46.1",
     "next-auth": "^4.24.15"
   }
 }

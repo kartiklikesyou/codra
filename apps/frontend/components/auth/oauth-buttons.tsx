@@ -14,7 +14,7 @@ export function OAuthButtons({ disabled = false }: OAuthButtonsProps) {
   const handleOAuthSignIn = async (provider: "google" | "github") => {
     try {
       setLoadingProvider(provider);
-      await signIn(provider, { callbackUrl: "/" });
+      await signIn(provider, { callbackUrl: "/dashboard" });
     } catch (error) {
       console.error(`Error during ${provider} sign-in:`, error);
       setLoadingProvider(null);

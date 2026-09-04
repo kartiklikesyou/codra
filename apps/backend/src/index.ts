@@ -2,6 +2,11 @@ import express from "express";
 import { prismaClient } from "db";
 import cors from "cors";
 import  projectRoutes from "./routes/project"
+import { generateWebsite } from "./services/ai";
+import dotenv from "dotenv";
+import { createWebsite } from "./services/sandbox";
+
+dotenv.config();
 
 const app = express();
 
@@ -75,6 +80,43 @@ app.post("/signin", async (req, res) => {
     id: user.id,
     email: user.email,
   });
+});
+
+app.post("/ai-test", async (req, res) => {
+  const { prompt } = req.body;
+
+  try {
+    const response = await generateWebsite(prompt);
+
+    return res.json({
+      response,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      error: "AI failed",
+    });
+  }
+});
+
+app.post("/website-test", async (req, res) => {
+  try {
+    const {prompt} = req.body
+    const aiResult = await generateWebsite(prompt)
+    const website = await createWebsite(aiResult.files) 
+
+    return res.json({
+      message : aiResult.message,
+      previewUrl : website.url
+    })
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      error: "Website creation failed",
+    });
+  }
 });
 
 app.listen(8080);

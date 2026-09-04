@@ -28,20 +28,44 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     setIsModalOpen(true);
   };
 
-  const handleCreateProject = (name: string, description: string) => {
+  const handleCreateProject = async (name: string, description: string) => {
+  try {
+    const response = await fetch("http://localhost:8080/website-test", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        prompt: description,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Website generation failed");
+    }
+
+    const data = await response.json();
+
+    console.log("Generated website:", data);
+
     const newId = `proj-${Date.now()}`;
+
     const newProject: Project = {
       id: newId,
       name,
       description,
       updatedAt: "Just now",
       stack: "Next.js",
+      previewUrl : data.previewUrl
     };
 
     setProjects([newProject, ...projects]);
     setIsModalOpen(false);
 
-    router.push(`/project/${newId}`);
+    router.push(`/project/${newId}?previewUrl=${encodeURIComponent(data.previewUrl)}`);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   return (

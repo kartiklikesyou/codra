@@ -4,8 +4,10 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { CodraLogo } from "@/components/auth/icons";
 import { Menu, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export function Navbar() {
+  const router = useRouter()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogoClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
@@ -62,12 +64,15 @@ export function Navbar() {
         {/* Right: Action Buttons (strictly NO redirect/auth navigation) */}
         <div className="hidden sm:flex items-center gap-3">
           <button
+            onClick={()=>router.push("/signin")}
             type="button"
             className="h-8 rounded-lg px-3.5 text-xs font-medium text-zinc-300 hover:text-white hover:bg-zinc-800/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-400 transition-colors"
           >
             Log in
           </button>
+
           <button
+            onClick={()=>router.push("/signup")}
             type="button"
             className="h-8 rounded-lg border border-zinc-700/60 bg-zinc-100 px-3.5 text-xs font-semibold text-zinc-900 shadow-sm hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 transition-all active:scale-[0.98]"
           >

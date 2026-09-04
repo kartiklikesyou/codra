@@ -4,6 +4,7 @@ export interface Project {
   description?: string;
   updatedAt: string;
   stack?: string;
+  previewUrl  ?: string
 }
 
 export interface UserProfile {

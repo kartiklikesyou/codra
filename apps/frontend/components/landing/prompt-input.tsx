@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { ArrowUp, Paperclip, Mic, Sparkles, Code2, Layers, Zap } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 const SUGGESTIONS = [
   { icon: Layers, label: "Full-stack SaaS with NextAuth & Stripe" },
@@ -10,6 +11,7 @@ const SUGGESTIONS = [
 ];
 
 export function PromptInput() {
+  const router = useRouter()
   const [prompt, setPrompt] = useState("");
   const [isSubmittedLocally, setIsSubmittedLocally] = useState(false);
 
@@ -72,6 +74,7 @@ export function PromptInput() {
             {/* Right Build/Submit Action */}
             <div className="flex items-center gap-2">
               <button
+                onClick={()=>router.push("/signup")}
                 type="submit"
                 disabled={!prompt.trim()}
                 className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold shadow-sm transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 ${

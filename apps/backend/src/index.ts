@@ -23,12 +23,14 @@ app.use(express.json());
 app.use("/api/projects",projectRoutes)
 
 app.get("/users", (req, res) => {
-  prismaClient.user.findMany()
-    .then(users => {
+    prismaClient.user.findMany()
+      .then((users: unknown) => {
       res.json(users);
     })
-    .catch(err => {
-      res.status(500).json({ error: err.message });
+    .catch((err: unknown) => {
+      res.status(500).json({
+        error: err instanceof Error ? err.message : "Unknown error"
+      });
     });
 })
 

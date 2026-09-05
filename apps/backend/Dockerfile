@@ -12,7 +12,7 @@ RUN npm install
 
 COPY . .
 
-RUN npm run build --workspace=backend
+RUN NODE_OPTIONS="--max-old-space-size=2048" npm run build --workspace=backend
 
 EXPOSE 8080
 

@@ -33,7 +33,7 @@ export function ProjectsGrid({
         <button
           type="button"
           onClick={onOpenNewProjectModal}
-          className="group flex min-h-[200px] flex-col items-center justify-center rounded-xl border border-dashed border-zinc-800/80 bg-transparent p-6 text-center transition-colors hover:border-zinc-700 hover:bg-[#0d0d10]"
+          className="group flex min-h-200px flex-col items-center justify-center rounded-xl border border-dashed border-zinc-800/80 bg-transparent p-6 text-center transition-colors hover:border-zinc-700 hover:bg-[#0d0d10]"
         >
           <div className="mb-2 flex size-9 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/60 text-zinc-400 group-hover:text-zinc-200 transition-colors">
             <Plus className="size-4" />

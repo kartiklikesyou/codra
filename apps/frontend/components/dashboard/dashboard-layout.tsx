@@ -38,7 +38,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const handleCreateProject = async (name: string, description: string) => {
   try {
     const newId = `proj-${Date.now()}`;
-    const response = await fetch("http://localhost:8080/website-test", {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/website-test`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

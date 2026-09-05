@@ -23,28 +23,26 @@ async function generateWithFallback(prompt: string) {
       }),
       prompt,
     });
-    console.log("Groq succeeded");
 
-    return result;
+    console.log("Groq succeeded");
+    return result.output;
+
   } catch (groqError) {
     console.error("Groq failed. Falling back to Gemini...");
     console.error(groqError);
+
     const result = await generateText({
       model: google("gemini-3.6-flash"),
-
       output: Output.object({
         schema: websiteSchema,
       }),
-
       prompt,
     });
 
     console.log("Gemini succeeded");
-
-    return result;
+    return result.output;
   }
 }
-
 
 export async function generateWebsite(prompt: string) {
   const result = await generateWithFallback(`
@@ -68,7 +66,7 @@ Important:
 - Do not leave placeholder code.
 `);
 
-  return result.output;
+  return result;
 }
 
 type WebsiteFile={
@@ -109,5 +107,5 @@ Return:
 - The complete updated website files.
 `);
 
-  return result.output;
+  return result;
 }

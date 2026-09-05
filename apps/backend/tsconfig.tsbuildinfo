@@ -1,1 +1,1 @@
-{"root":["./src/index.ts","./src/routes/project.ts","./src/services/ai.ts","./src/services/sandbox.ts"],"version":"5.9.2"}
+{"root":["./src/index.ts","./src/project-store.ts","./src/routes/project.ts","./src/services/ai.ts","./src/services/sandbox.ts"],"version":"5.9.2"}

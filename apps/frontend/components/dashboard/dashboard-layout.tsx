@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { DashboardSidebar } from "./dashboard-sidebar";
 import { NewProjectModal } from "./new-project-modal";
 import { INITIAL_PROJECTS, Project } from "./mock-data";
+import { WebsiteFile } from "./mock-data";
 
 interface DashboardLayoutProps {
   children: (props: {
@@ -12,6 +13,12 @@ interface DashboardLayoutProps {
     onOpenNewProjectModal: (initialPrompt?: string) => void;
   }) => React.ReactNode;
 }
+
+type GenerateWebsiteResponse = {
+  message: string;
+  previewUrl: string;
+  files?: WebsiteFile[];
+};
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
@@ -30,12 +37,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const handleCreateProject = async (name: string, description: string) => {
   try {
+    const newId = `proj-${Date.now()}`;
     const response = await fetch("http://localhost:8080/website-test", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        projectId:newId,
         prompt: description,
       }),
     });
@@ -44,22 +53,21 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       throw new Error("Website generation failed");
     }
 
-    const data = await response.json();
+    const data : GenerateWebsiteResponse = await response.json();
 
     console.log("Generated website:", data);
-
-    const newId = `proj-${Date.now()}`;
 
     const newProject: Project = {
       id: newId,
       name,
       description,
       updatedAt: "Just now",
-      stack: "Next.js",
-      previewUrl : data.previewUrl
+      stack: "HTML,CSS,JS",
+      previewUrl : data.previewUrl,
+      files:data.files
     };
 
-    setProjects([newProject, ...projects]);
+    setProjects((prev)=>[newProject,...prev]);
     setIsModalOpen(false);
 
     router.push(`/project/${newId}?previewUrl=${encodeURIComponent(data.previewUrl)}`);

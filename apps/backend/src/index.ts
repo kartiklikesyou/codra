@@ -2,9 +2,11 @@ import express from "express";
 import { prismaClient } from "db";
 import cors from "cors";
 import  projectRoutes from "./routes/project"
-import { generateWebsite } from "./services/ai";
+import { generateWebsite, modifyWebsite } from "./services/ai";
 import dotenv from "dotenv";
 import { createWebsite } from "./services/sandbox";
+import { getProject, saveProject, updateProjectFiles } from "./project-store";
+
 
 dotenv.config();
 
@@ -102,14 +104,21 @@ app.post("/ai-test", async (req, res) => {
 
 app.post("/website-test", async (req, res) => {
   try {
-    const {prompt} = req.body
+    const {prompt,projectId} = req.body
     const aiResult = await generateWebsite(prompt)
     const website = await createWebsite(aiResult.files) 
 
+    saveProject(
+      projectId,
+      aiResult.files,
+      website.sandbox
+    )
+
     return res.json({
-      message : aiResult.message,
-      previewUrl : website.url
-    })
+      message: aiResult.message,
+      previewUrl: website.url,
+      files: aiResult.files,
+    });
   } catch (error) {
     console.error(error);
 
@@ -118,5 +127,43 @@ app.post("/website-test", async (req, res) => {
     });
   }
 });
+
+app.post("/modify-website", async (req,res)=>{
+  try{
+    const {projectId,instruction}=req.body
+    const project = getProject(projectId)
+
+    if (!project) {
+      return res.status(404).json({
+        error: "Project not found",
+      });
+    }
+
+    const aiResult = await modifyWebsite(
+      project.files,
+      instruction
+    )
+
+    for (const file of aiResult.files){
+      await project.sandbox.files.write(
+        `/tmp/website/${file.path}`,
+        file.content
+      )
+    }
+
+    updateProjectFiles(projectId,aiResult.files)
+
+    return res.json({
+      message : aiResult.message
+    })
+
+  }catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      error: "Website modification failed",
+    });
+  }
+})
 
 app.listen(8080);

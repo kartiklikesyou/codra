@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 export default function ProjectWorkspacePage() {
+  const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
   const searchParams = useSearchParams();
   const previewUrl = searchParams.get("previewUrl");
   console.log("Search params:", searchParams.toString());
@@ -58,23 +59,24 @@ export default function ProjectWorkspacePage() {
         sender:"user", text : userMsg
       },
       {
-        sender : "agent", text : `Synthesizing code for ${userMsg}`
+        sender : "agent", text : `Modifying your website...`
       }
     ])
 
     try{
-      const response = await fetch("http://localhost:8080/website-test",{
+      const response = await fetch("http://localhost:8080/modify-website",{
         method : "POST",
         headers : {
           "Content-Type": "application/json"
         },
         body : JSON.stringify({
-          prompt : userMsg
+          projectId,
+          instruction:userMsg
         })
       })
 
       if(!response.ok){
-        throw new Error("Website Generation Failed")
+        throw new Error("Website Modification Failed")
       }
 
       const data = await response.json()
@@ -87,6 +89,8 @@ export default function ProjectWorkspacePage() {
         }
       ])
 
+      setPreviewRefreshKey((prev) => prev + 1);
+
       console.log("Preview Url", data.previewUrl)
     }catch(e){
       console.log(e)
@@ -94,7 +98,7 @@ export default function ProjectWorkspacePage() {
         ...prev,
         {
           sender : "agent",
-          text : "Something went wrong while generating the website"
+          text : "Something went wrong while modifying the website"
         }
       ])
     }
@@ -231,7 +235,7 @@ export default function ProjectWorkspacePage() {
               <div className="flex-1 rounded-b-lg border border-zinc-800 bg-white overflow-hidden">
                 {previewUrl ? (
                   <iframe
-                    src={previewUrl}
+                    src={`${previewUrl}${previewUrl.includes("?") ? "&" : "?"}refresh=${previewRefreshKey}`}
                     title={`${project.name} Preview`}
                     className="h-full w-full border-0"
                   />

@@ -10,6 +10,8 @@ RUN npm install
 
 COPY . .
 
+RUN npx prisma generate --schema=packages/db/prisma/schema.prisma
+
 ARG NEXT_PUBLIC_API_URL=/api
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 

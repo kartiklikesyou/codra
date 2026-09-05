@@ -16,6 +16,8 @@ RUN npm install
 
 COPY . .
 
+RUN npx prisma generate --schema=packages/db/prisma/schema.prisma
+
 RUN NODE_OPTIONS="--max-old-space-size=2048" npm run build --workspace=backend
 
 EXPOSE 8080

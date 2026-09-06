@@ -48,10 +48,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         prompt: description,
       }),
     });
-
+    console.log(response)
     if (!response.ok) {
       throw new Error("Website generation failed");
     }
+
 
     const data : GenerateWebsiteResponse = await response.json();
 

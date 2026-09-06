@@ -64,7 +64,12 @@ app.post("/signup", async (req, res) => {
 })
 
 app.post("/signin", async (req, res) => {
+  console.log("sign in endpoint hit ")
+  try{
   const { email, password } = req.body;
+  console.log("request body",req.body)
+  console.log("email",email)
+  console.log("password",password)
 
   if (!email || !password) {
     res.status(400).json({ error: "Email and password are required" });
@@ -74,16 +79,25 @@ app.post("/signin", async (req, res) => {
   const user = await prismaClient.user.findUnique({
     where: { email },
   });
+  console.log("USER FOUND:", user);
 
   if (!user || user.password !== password) {
     res.status(401).json({ error: "Invalid credentials" });
     return;
   }
-
+  console.log("user exists")
+  console.log("password match",user.password===password)
+  
   res.json({
     id: user.id,
     email: user.email,
-  });
+  })
+  }catch(e){
+    console.log(e)
+    return res.json({
+      e:"Sign-In Failed"
+    })
+  }
 });
 
 app.post("/ai-test", async (req, res) => {
@@ -105,10 +119,13 @@ app.post("/ai-test", async (req, res) => {
 });
 
 app.post("/website-test", async (req, res) => {
+  console.log("1")
   try {
+    console.log('2')
     const {prompt,projectId} = req.body
     const aiResult = await generateWebsite(prompt)
     const website = await createWebsite(aiResult.files) 
+    console.log("-------REQUEST PAYLOAD-----", prompt, projectId);
 
     saveProject(
       projectId,
@@ -121,6 +138,7 @@ app.post("/website-test", async (req, res) => {
       previewUrl: website.url,
       files: aiResult.files,
     });
+    console.log(projectId)
   } catch (error) {
     console.error(error);
 

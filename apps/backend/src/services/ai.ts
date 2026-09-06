@@ -1,7 +1,7 @@
 import { generateText, Output } from "ai";
 import { google } from "@ai-sdk/google";
 import { z } from "zod";
-import { groq } from "@ai-sdk/groq";
+import { openrouter } from "@openrouter/ai-sdk-provider";
 
 const websiteSchema = z.object({
   message: z.string(),
@@ -17,30 +17,32 @@ const websiteSchema = z.object({
 async function generateWithFallback(prompt: string) {
   try {
     const result = await generateText({
-      model: groq("openai/gpt-oss-20b"),
+      model: openrouter("openai/gpt-chat-latest"),
       output: Output.object({
         schema: websiteSchema,
       }),
       prompt,
     });
 
-    console.log("Groq succeeded");
-    return result.output;
+    const output = result.output;
+    console.log("Open Router succeeded");
+    return output;
 
-  } catch (groqError) {
-    console.error("Groq failed. Falling back to Gemini...");
-    console.error(groqError);
+  } catch (OpenRouterError) {
+    console.error("OpenRouter failed. Falling back to Gemini...");
+    console.error(OpenRouterError);
 
     const result = await generateText({
       model: google("gemini-3.6-flash"),
       output: Output.object({
         schema: websiteSchema,
       }),
-      prompt,
+      prompt, 
     });
 
+    const output = result.output;
     console.log("Gemini succeeded");
-    return result.output;
+    return output;
   }
 }
 

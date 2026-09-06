@@ -31,14 +31,20 @@ export default function SigninPage() {
         setIsLoading(true);
         setError(null);
 
-        const res = await signIn("credentials", {
-            email: email.trim(),
-            password,
-            redirect: false,
-        });
+        console.log("API URL:",`${process.env.NEXT_PUBLIC_API_URL}/signin`);
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/signin`,{
+          method:"POST",
+          headers:{
+            "Content-Type":"application/json"
+          },
+          body:JSON.stringify({
+            email:email.trim(),
+            password
+          })
+        })
         console.log("SIGNIN RESPONSE:", res);
 
-        if (!res || res.error || !res.ok) {
+        if (!res ||!res.ok) {
             setError("Invalid email or password. Please try again.");
             setIsLoading(false);
             return;

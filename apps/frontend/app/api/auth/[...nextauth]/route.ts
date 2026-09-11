@@ -6,10 +6,6 @@ import GoogleProvider from "next-auth/providers/google";
 import GitHubProvider from "next-auth/providers/github";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prismaClient } from "db";
-import dotenv from "dotenv";
-import path from "path";
-
-dotenv.config({ path: path.resolve(process.cwd(), "../../.env") });
 
 export const authOptions: AuthOptions = {
   adapter: PrismaAdapter(prismaClient),

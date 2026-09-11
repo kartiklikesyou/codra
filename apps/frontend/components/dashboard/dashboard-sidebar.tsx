@@ -46,8 +46,10 @@ export function DashboardSidebar({
   const recentProjects = projects;
 
   const displayName =
-    session?.user?.name ||
-    (session?.user?.email ? session.user.email.split("@")[0] : null)
+  session?.user?.name ||
+  (session?.user?.email
+    ? session.user.email.split("@")[0]
+    : "User");
 
   const displayEmail = session?.user?.email
   const displayInitial = (displayName?.[0] || "U").toUpperCase();
@@ -233,7 +235,7 @@ export function DashboardSidebar({
               {session?.user?.image ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={session.user.image}
+                  src={session.user.image ?? undefined}
                   alt={displayName}
                   className="size-7 shrink-0 rounded-full border border-zinc-700/60 object-cover"
                 />

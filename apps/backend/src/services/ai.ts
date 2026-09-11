@@ -133,8 +133,7 @@ async function generateWithFallback(
     const result = await generateText({
       model: google("gemini-3.6-flash"),
       tools,
-      stopWhen: stepCountIs(4),
-      prompt,
+      prompt
     });
 
     console.log("Gemini succeeded");

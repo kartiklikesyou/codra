@@ -6,10 +6,12 @@ type File = {
   content : string 
 }
 
+console.log("Creating E2B Sandbox")
 export async function createWebsite(files: File[]) {
   const sandbox = await Sandbox.create({
     timeoutMs: 60 * 60 * 1000,
   });
+  console.log("E2B Sadbox Created",sandbox)
 
   await sandbox.commands.run(
     `mkdir -p ${WEBSITE_DIR}`

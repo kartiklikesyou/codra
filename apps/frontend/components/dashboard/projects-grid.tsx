@@ -8,11 +8,13 @@ import { Plus } from "lucide-react";
 interface ProjectsGridProps {
   projects: Project[];
   onOpenNewProjectModal: () => void;
+  onDeleteProject?: (id: string, name: string) => void;
 }
 
 export function ProjectsGrid({
   projects,
   onOpenNewProjectModal,
+  onDeleteProject,
 }: ProjectsGridProps) {
   return (
     <section className="space-y-4 pt-2">
@@ -26,7 +28,11 @@ export function ProjectsGrid({
       {/* Projects Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {projects.map((project) => (
-          <ProjectCard key={project.id} project={project} />
+          <ProjectCard
+            key={project.id}
+            project={project}
+            onDeleteProject={onDeleteProject}
+          />
         ))}
 
         {/* Minimal "+ New Project" Card */}

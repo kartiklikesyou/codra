@@ -11,52 +11,44 @@ import { AuthErrorAlert } from "@/components/auth/auth-error-alert";
 import { SpinnerIcon } from "@/components/auth/icons";
 
 export default function SigninPage() {
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [error, setError] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const router = useRouter(); 
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter(); 
 
-    async function handleSignin(e: React.FormEvent<HTMLFormElement>) {
-      console.log("HANDLE SIGNIN CALLED");
-        e.preventDefault();
-        if (isLoading) return;
+  async function handleSignin(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (isLoading) return;
 
-        if (!email.trim() || !password) {
-        setError("Please enter both email and password.");
-        return;
-        }
+    if (!email.trim() || !password) {
+    setError("Please enter both email and password.");
+    return;
+    }
 
-        try {
-        setIsLoading(true);
-        setError(null);
+    try {
+      setIsLoading(true);
+      setError(null);
 
-        console.log("API URL:",`${process.env.NEXT_PUBLIC_API_URL}/signin`);
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/signin`,{
-          method:"POST",
-          headers:{
-            "Content-Type":"application/json"
-          },
-          body:JSON.stringify({
-            email:email.trim(),
-            password
-          })
-        })
-        console.log("SIGNIN RESPONSE:", res);
+      const result = await signIn("credentials", {
+        email: email.trim(),
+        password,
+        redirect: false,
+      });
 
-        if (!res ||!res.ok) {
-            setError("Invalid email or password. Please try again.");
-            setIsLoading(false);
-            return;
-        }
-
-        router.push("/dashboard");
-        router.refresh();
-        } catch (err) {
-        console.error("Sign in error:", err);
-        setError("An unexpected error occurred. Please try again.");
+      if (!result || result.error) {
+        setError("Invalid email or password. Please try again.");
         setIsLoading(false);
-        }
+        return;
+      }
+
+      router.push("/dashboard");
+      router.refresh();
+    } catch (err) {
+      console.error("Sign in error:", err);
+      setError("An unexpected error occurred. Please try again.");
+      setIsLoading(false);
+    }
   }
 
   return (

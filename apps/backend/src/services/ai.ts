@@ -1,11 +1,10 @@
-import { generateText, Output } from "ai";
+import { generateText, Output, tool, stepCountIs } from "ai";
 import { google } from "@ai-sdk/google";
 import { z } from "zod";
-import { openrouter } from "@openrouter/ai-sdk-provider";
+import {openai} from "@ai-sdk/openai"
 
 const websiteSchema = z.object({
   message: z.string(),
-
   files: z.array(
     z.object({
       path: z.string(),
@@ -14,39 +13,145 @@ const websiteSchema = z.object({
   ),
 });
 
-async function generateWithFallback(prompt: string) {
+type WebsiteFile={
+  path : string,
+  content:string
+}
+
+function createWriteFileTool(files : WebsiteFile[]){
+  return tool({
+    description : "Create or update multiple website files at once",
+    inputSchema: z.object({
+      files: z.array(
+        z.object({
+          path: z.string(),
+          content: z.string(),
+        })
+      ),
+    }),
+    execute : async (input)=>{
+      const newFiles = input.files
+      console.log("TOOL CALLED: writeFiles",newFiles.map((file) => file.path));
+
+      for (const newFile  of  newFiles){
+        const existingFile = files.find((file)=>file.path===newFile.path)
+        if (existingFile){  
+          existingFile.content = newFile.content
+        }
+        if(!existingFile){
+            files.push(newFile)
+        }
+      }
+      return {
+        success:true,
+        files:newFiles.map((file)=>file.path)
+      }
+    } 
+  })
+}
+
+function createReadFileTools(files : WebsiteFile[]){
+  return tool({
+    description : "Read one or more existing website files",
+    inputSchema : z.object({
+      paths : z.array(z.string())
+    }),
+    execute : async function (input){
+      const paths = input.paths
+      console.log("TOOL CALLED : readFiles",paths)
+      return paths.map((path)=>{
+        const file = files.find((file)=>file.path===path)
+        return {
+          path,
+          content : file?.content ?? null,
+          exists : !!file
+        }
+      })
+    }
+  })
+}
+
+function cloneFiles(files: WebsiteFile[]): WebsiteFile[] {
+  return files.map((file) => ({
+    path: file.path,
+    content: file.content,
+  }));
+}
+
+async function generateWithFallback(
+  prompt: string,
+  files: WebsiteFile[]
+) {
+  const start = Date.now();
+
   try {
+    console.log("Trying OpenAI...");
+
+    const openAIFiles = cloneFiles(files);
+
+    const tools: Record<string, any> = {
+      writeFiles: createWriteFileTool(openAIFiles),
+    };
+
+    if (openAIFiles.length > 0) {
+      tools.readFiles = createReadFileTools(openAIFiles);
+    }
+
     const result = await generateText({
-      model: openrouter("openai/gpt-chat-latest"),
-      output: Output.object({
-        schema: websiteSchema,
-      }),
+      model: openai("gpt-5.6-luna"),
+      tools,
+      stopWhen: stepCountIs(4),
       prompt,
     });
 
-    const output = result.output;
-    console.log("Open Router succeeded");
-    return output;
+    console.log("OpenAI succeeded");
+    console.log(`Whole Generation took ${Date.now() - start}ms`);
 
-  } catch (OpenRouterError) {
-    console.error("OpenRouter failed. Falling back to Gemini...");
-    console.error(OpenRouterError);
+    files.length = 0;
+    files.push(...openAIFiles);
+
+    return {
+      message: result.text,
+      files,
+    };
+
+  } catch (openAIError) {
+
+    console.error("OpenAI failed, falling back to Gemini");
+    console.error(openAIError);
+
+    const geminiFiles = cloneFiles(files);
+
+    const tools: Record<string, any> = {
+      writeFiles: createWriteFileTool(geminiFiles),
+    };
+
+    if (geminiFiles.length > 0) {
+      tools.readFiles = createReadFileTools(geminiFiles);
+    }
 
     const result = await generateText({
       model: google("gemini-3.6-flash"),
-      output: Output.object({
-        schema: websiteSchema,
-      }),
-      prompt, 
+      tools,
+      stopWhen: stepCountIs(4),
+      prompt,
     });
 
-    const output = result.output;
     console.log("Gemini succeeded");
-    return output;
+    console.log(`Whole Generation took ${Date.now() - start}ms`);
+
+    files.length = 0;
+    files.push(...geminiFiles);
+
+    return {
+      message: result.text,
+      files,
+    };
   }
 }
-
+ 
 export async function generateWebsite(prompt: string) {
+  const files: WebsiteFile[] = [];
   const result = await generateWithFallback(`
 You are an expert website generator.
 
@@ -54,60 +159,57 @@ The user wants:
 
 ${prompt}
 
-Generate a complete, working website.
+Generate a complete, working website based on the user's request.
 
-Return:
-- A short message explaining what you created
-- All website files with their paths and complete contents
+IMPORTANT:
+- You MUST use the writeFiles tool.
+- Create ALL required files in ONE single tool call.
+- Do NOT make separate tool calls for individual files.
+- Do NOT return file contents in your final response.
 
-Important:
-- Generate a complete working website.
-- Use HTML, CSS, and JavaScript.
-- Make sure index.html is the main entry file.
-- Include all necessary files.
-- Do not leave placeholder code.
-`);
+For a standard website, create:
+- index.html
+- style.css
+- script.js
+
+Requirements:
+- index.html is the main entry point.
+- style.css contains the website styling.
+- script.js contains the website functionality.
+- Make the website responsive and polished.
+- Include all functionality requested by the user.
+- Do not leave TODOs, placeholders, or incomplete code.
+- Make sure file references are correct.
+
+After calling writeFiles, respond with only a short confirmation.
+`,files);
 
   return result;
-}
-
-type WebsiteFile={
-  path : string,
-  content:string
 }
 
 export async function modifyWebsite(files:WebsiteFile[],instruction:string){
    const result = await generateWithFallback(`
-You are an AI website editor.
+    You are an AI website editor.
 
-The user has an existing website with these files:
+    The user has an existing website.
 
-${files
-  .map(
-    (file) => `
-FILE: ${file.path}
+    The user wants this modification:
 
-${file.content}
-`
-  )
-  .join("\n\n")}
+    ${instruction}
 
-The user wants this modification:
+    Use the readFiles tool to inspect the files you need before modifying them.
 
-${instruction}
+    Then use the writeFiles tool to apply the changes.
 
-Modify the existing website according to the user's request.
-
-Important rules:
-- Preserve existing functionality unless the user asks to change it.
-- Return the COMPLETE contents of every file.
-- Do not return explanations inside the file contents.
-- Keep the same file paths unless new files are necessary.
-
-Return:
-- A short message explaining what you changed.
-- The complete updated website files.
-`);
+    Important rules:
+    - Only read files that are relevant to the requested modification.
+    - Preserve existing functionality unless the user asks to change it.
+    - Modify only the files that actually need changes.
+    - Keep the same file paths unless a new file is necessary.
+    - Do not return file contents in your final response.
+    - After modifying the files, respond with a short confirmation.`,files);
 
   return result;
 }
+
+

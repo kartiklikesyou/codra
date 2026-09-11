@@ -1,20 +1,20 @@
 import express from "express";
+import dotenv from "dotenv";
+dotenv.config({ path: "../../.env" });
 import { prismaClient } from "db";
 import cors from "cors";
-import  projectRoutes from "./routes/project"
-import { generateWebsite, modifyWebsite } from "./services/ai";
-import dotenv from "dotenv";
+import projectRoutes from "./routes/project";
+import type { Request, Response, NextFunction } from "express";
+import { generateWebsite, modifyWebsite} from "./services/ai";
 import { createWebsite } from "./services/sandbox";
 import { getProject, saveProject, updateProjectFiles } from "./project-store";
-
-
-dotenv.config();
+import bcrypt from "bcrypt";
 
 const app = express();
 
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: process.env.CORS_ORIGIN || "http://localhost:3000",
   })
 );
 
@@ -22,31 +22,23 @@ app.use(express.json());
 
 app.use("/api/projects",projectRoutes)
 
-app.get("/users", (req, res) => {
-    prismaClient.user.findMany()
-      .then((users: unknown) => {
-      res.json(users);
-    })
-    .catch((err: unknown) => {
-      res.status(500).json({
-        error: err instanceof Error ? err.message : "Unknown error"
-      });
-    });
-})
-
 app.post("/signup", async (req, res) => {
   const { email, password } = req.body;
-  
+
   if (!email || !password) {
-    res.status(400).json({ error: "email and password are required" });
-    return
+    res.status(400).json({
+      error: "email and password are required",
+    });
+    return;
   }
 
   try {
+    const hashedPassword = await bcrypt.hash(password, 12);
+
     const user = await prismaClient.user.create({
       data: {
         email,
-        password,
+        password: hashedPassword,
       },
     });
 
@@ -58,132 +50,131 @@ app.post("/signup", async (req, res) => {
     console.error(e);
 
     res.status(500).json({
-      e: "Could not create user",
+      error: "Could not create user",
     });
-  }
-})
-
-app.post("/signin", async (req, res) => {
-  console.log("sign in endpoint hit ")
-  try{
-  const { email, password } = req.body;
-  console.log("request body",req.body)
-  console.log("email",email)
-  console.log("password",password)
-
-  if (!email || !password) {
-    res.status(400).json({ error: "Email and password are required" });
-    return;
-  }
-
-  const user = await prismaClient.user.findUnique({
-    where: { email },
-  });
-  console.log("USER FOUND:", user);
-
-  if (!user || user.password !== password) {
-    res.status(401).json({ error: "Invalid credentials" });
-    return;
-  }
-  console.log("user exists")
-  console.log("password match",user.password===password)
-  
-  res.json({
-    id: user.id,
-    email: user.email,
-  })
-  }catch(e){
-    console.log(e)
-    return res.json({
-      e:"Sign-In Failed"
-    })
   }
 });
 
-app.post("/ai-test", async (req, res) => {
-  const { prompt } = req.body;
-
+app.post("/signin", async (req, res) => {
   try {
-    const response = await generateWebsite(prompt);
+    const { email, password } = req.body;
 
-    return res.json({
-      response,
+    if (!email || !password) {
+      res.status(400).json({ error: "Email and password are required" });
+      return;
+    }
+
+    const user = await prismaClient.user.findUnique({
+      where: { email },
     });
-  } catch (error) {
-    console.error(error);
 
-    return res.status(500).json({
-      error: "AI failed",
+    if (!user ) {
+      res.status(401).json({ error: "User Not Found!" });
+      return;
+    }
+
+    if (!user.password) {
+      res.status(401).json({
+        error: "Invalid credentials",
+      });
+      return;
+    }
+
+    const passwordMatches = await bcrypt.compare(
+      password,
+      user.password
+    );
+
+    if (!passwordMatches) {
+      res.status(401).json({
+        error: "Invalid credentials",
+      });
+      return;
+    }
+
+    res.json({
+      id: user.id,
+      email: user.email,
+      name: user.name ?? null,
+      image: user.image ?? null,
+    });
+  } catch (e) {
+    console.error("Backend signin error:", e);
+    res.status(500).json({
+      error: "Sign-In Failed",
     });
   }
 });
 
 app.post("/website-test", async (req, res) => {
-  console.log("1")
+  const { prompt, projectId } = req.body;
   try {
-    console.log('2')
-    const {prompt,projectId} = req.body
-    const aiResult = await generateWebsite(prompt)
-    const website = await createWebsite(aiResult.files) 
-    console.log("-------REQUEST PAYLOAD-----", prompt, projectId);
+    const aiResult = await generateWebsite(prompt);
+    const website = await createWebsite(aiResult.files);
 
     saveProject(
       projectId,
       aiResult.files,
       website.sandbox
-    )
+    );
 
-    return res.json({
+    const responsePayload = {
       message: aiResult.message,
       previewUrl: website.url,
       files: aiResult.files,
-    });
-    console.log(projectId)
-  } catch (error) {
-    console.error(error);
+    };
 
+    return res.json(responsePayload);
+  } catch (error) {
+    console.log(error)
     return res.status(500).json({
-      error: "Website creation failed",
-    });
+      error: "Website Generation Failed"
+    })
   }
 });
 
-app.post("/modify-website", async (req,res)=>{
-  try{
-    const {projectId,instruction}=req.body
-    const project = getProject(projectId)
+app.post("/modify-website", async (req, res) => {
+  try {
+    const { projectId, instruction } = req.body;
+    const project = getProject(projectId);
 
     if (!project) {
-      return res.status(404).json({
-        error: "Project not found",
-      });
+      return res.status(404).json({ error: "Project not found" });
     }
 
-    const aiResult = await modifyWebsite(
-      project.files,
-      instruction
-    )
+    const aiResult = await modifyWebsite(project.files, instruction);
 
-    for (const file of aiResult.files){
-      await project.sandbox.files.write(
-        `/tmp/website/${file.path}`,
-        file.content
-      )
+    for (const file of aiResult.files) {
+      await project.sandbox.files.write(`/tmp/website/${file.path}`, file.content);
     }
 
-    updateProjectFiles(projectId,aiResult.files)
+    updateProjectFiles(projectId, aiResult.files);
 
-    return res.json({
-      message : aiResult.message
-    })
-
-  }catch (error) {
-    console.error(error);
-
+    return res.json({ message: aiResult.message, files: aiResult.files });
+  } catch (error) {
+    console.log(error)
     return res.status(500).json({
-      error: "Website modification failed",
-    });
+      error: "Website Modification Failed"
+    })
   }
-})
+});
 
-app.listen(8080);
+// Global Error Handler
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  console.error('Express error handler caught:', err);
+  if (!res.headersSent) {
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Deals  with unhandled Promises Rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+
+const server = app.listen(8080, () => {
+  console.log('Backend server listening on port 8080');
+});
+// Disabling the timeout so that long AI operations can be done 
+server.setTimeout(0);

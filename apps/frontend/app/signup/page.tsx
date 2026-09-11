@@ -30,7 +30,7 @@ export default function SignupPage() {
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/signup`, {
+      const response = await fetch(`/backend/signup`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -55,7 +55,6 @@ export default function SignupPage() {
         return;
       }
 
-      // Automatically sign in via NextAuth credentials after successful signup
       const signInRes = await signIn("credentials", {
         email: email.trim(),
         password,
@@ -66,7 +65,6 @@ export default function SignupPage() {
         router.push("/dashboard");
         router.refresh();
       } else {
-        // If automatic login doesn't complete, redirect to signin
         router.push("/signin");
       }
     } catch (err) {

@@ -4,7 +4,6 @@ WORKDIR /app
 
 COPY package*.json ./
 COPY apps/frontend/package*.json ./apps/frontend/
-COPY packages ./packages
 
 RUN npm install
 

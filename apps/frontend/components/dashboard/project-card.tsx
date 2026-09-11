@@ -3,16 +3,18 @@
 import React from "react";
 import Link from "next/link";
 import { Project } from "./mock-data";
+import { ProjectMenuButton } from "./project-menu-button";
 
 interface ProjectCardProps {
   project: Project;
+  onDeleteProject?: (id: string, name: string) => void;
 }
 
-export function ProjectCard({ project }: ProjectCardProps) {
+export function ProjectCard({ project, onDeleteProject }: ProjectCardProps) {
   return (
     <Link
       href={`/project/${project.id}`}
-      className="group flex flex-col justify-between rounded-xl border border-zinc-800/80 bg-[#0d0d10] p-3 transition-colors hover:border-zinc-700 hover:bg-[#111115]"
+      className="group relative flex flex-col justify-between rounded-xl border border-zinc-800/80 bg-[#0d0d10] p-3 transition-colors hover:border-zinc-700 hover:bg-[#111115]"
     >
       {/* Simple Dark Preview Area */}
       <div className="relative mb-3.5 h-32 w-full overflow-hidden rounded-lg border border-zinc-800/60 bg-[#08080a] p-3 flex flex-col justify-between select-none">
@@ -34,13 +36,23 @@ export function ProjectCard({ project }: ProjectCardProps) {
       </div>
 
       {/* Card Info */}
-      <div className="px-1 pb-1 space-y-1">
-        <h3 className="text-sm font-medium text-zinc-200 group-hover:text-white transition-colors truncate">
-          {project.name}
-        </h3>
-        <p className="text-xs text-zinc-500 font-normal">
-          {project.updatedAt}
-        </p>
+      <div className="px-1 pb-1 flex items-center justify-between gap-2">
+        <div className="space-y-1 min-w-0 flex-1">
+          <h3 className="text-sm font-medium text-zinc-200 group-hover:text-white transition-colors truncate">
+            {project.name}
+          </h3>
+          <p className="text-xs text-zinc-500 font-normal">
+            {project.updatedAt}
+          </p>
+        </div>
+
+        {onDeleteProject && (
+          <ProjectMenuButton
+            projectId={project.id}
+            projectName={project.name}
+            onDeleteClick={onDeleteProject}
+          />
+        )}
       </div>
     </Link>
   );

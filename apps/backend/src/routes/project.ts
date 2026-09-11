@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { prismaClient } from "db";
+import { getProject } from "../project-store";
 
 const router = Router()
 
@@ -46,17 +47,35 @@ router.get("/:id",async (req,res)=>{
             id:pId
         }
     })
-    return res.json(project)
+    const projectData = getProject(pId)
+    return res.json({ ...project, files: projectData?.files ?? [] })
 })
 
-router.delete("/:id",async(req,res)=>{
-    await prismaClient.project.delete({
-        where:{
-            id : req.params.id
-        }
-    })
-    return res.send()
-})
+router.delete("/:id", async (req, res) => {
+  const { id } = req.params;
+  const userId = req.query.userId as string | undefined;
+
+  if (!userId) {
+    return res.status(401).json({ error: "Unauthenticated" });
+  }
+
+  const project = await prismaClient.project.findUnique({
+    where: { id },
+  });
+
+  if (!project) {
+    return res.status(404).json({ error: "Project not found" });
+  }
+
+  if (project.userId !== String(userId)) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  await prismaClient.project.delete({
+    where: { id },
+  });
+  return res.send();
+});
 
 export default router
 

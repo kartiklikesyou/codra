@@ -1,16 +1,6 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
 import "./globals.css";
-import { cn } from "@/lib/utils";
-
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-sans",
-});
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-mono",
-});
+import { AuthSessionProvider } from "@/components/auth/session-provider";
 
 export const metadata: Metadata = {
   title: "Codra",
@@ -23,9 +13,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn("dark font-sans", geistSans.variable, geistMono.variable)}>
-      <body className="min-h-screen bg-background text-foreground antialiased selection:bg-zinc-800 selection:text-white">
-        {children}
+    <html lang="en">
+      <body>
+        <AuthSessionProvider>
+          {children}
+        </AuthSessionProvider>
       </body>
     </html>
   );

@@ -8,19 +8,17 @@ import { ProjectsGrid } from "@/components/dashboard/projects-grid";
 export default function DashboardPage() {
   return (
     <DashboardLayout>
-      {({ projects, onOpenNewProjectModal }) => (
+      {({ projects, onOpenNewProjectModal, onDeleteProject }) => (
         <div className="space-y-12">
-          {/* Main AI Project Prompt */}
           <DashboardPrompt
             onBuildProject={(promptText) => {
               onOpenNewProjectModal(promptText);
             }}
           />
-
-          {/* Projects Gallery */}
           <ProjectsGrid
             projects={projects}
             onOpenNewProjectModal={() => onOpenNewProjectModal()}
+            onDeleteProject={onDeleteProject}
           />
         </div>
       )}

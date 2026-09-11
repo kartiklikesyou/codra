@@ -3,8 +3,10 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
 import { CodraLogo } from "@/components/auth/icons";
-import { CURRENT_USER, Project } from "./mock-data";
+import { Project } from "./mock-data";
+import { ProjectMenuButton } from "./project-menu-button";
 import {
   LayoutDashboard,
   Folder,
@@ -21,14 +23,17 @@ import {
 interface DashboardSidebarProps {
   projects: Project[];
   onOpenNewProjectModal: () => void;
+  onDeleteProject?: (id: string, name: string) => void;
 }
 
 export function DashboardSidebar({
   projects,
   onOpenNewProjectModal,
+  onDeleteProject,
 }: DashboardSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const { data: session } = useSession();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -38,7 +43,14 @@ export function DashboardSidebar({
     { label: "Settings", href: "/settings", icon: Settings },
   ];
 
-  const recentProjects = projects.slice(0, 4);
+  const recentProjects = projects;
+
+  const displayName =
+    session?.user?.name ||
+    (session?.user?.email ? session.user.email.split("@")[0] : null)
+
+  const displayEmail = session?.user?.email
+  const displayInitial = (displayName?.[0] || "U").toUpperCase();
 
   return (
     <>
@@ -133,19 +145,33 @@ export function DashboardSidebar({
                   pathname === `/project/${project.id}` ||
                   pathname === `/projects/${project.id}`;
                 return (
-                  <Link
+                  <div
                     key={project.id}
-                    href={`/project/${project.id}`}
-                    onClick={() => setMobileOpen(false)}
-                    className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs transition-colors ${
+                    className={`group flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs transition-colors ${
                       isProjectActive
                         ? "bg-zinc-800/70 text-zinc-100 font-medium"
                         : "text-zinc-400 hover:bg-zinc-900/50 hover:text-zinc-200"
                     }`}
                   >
-                    <Code2 className="size-3.5 text-zinc-500 shrink-0" />
-                    <span className="truncate text-[12px]">{project.name}</span>
-                  </Link>
+                    <Link
+                      href={`/project/${project.id}`}
+                      onClick={() => setMobileOpen(false)}
+                      className="flex items-center gap-2.5 min-w-0 flex-1 truncate"
+                    >
+                      <Code2 className="size-3.5 text-zinc-500 shrink-0" />
+                      <span className="truncate text-[12px]">{project.name}</span>
+                    </Link>
+
+                    {onDeleteProject && (
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <ProjectMenuButton
+                          projectId={project.id}
+                          projectName={project.name}
+                          onDeleteClick={onDeleteProject}
+                        />
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
@@ -168,8 +194,8 @@ export function DashboardSidebar({
           {userMenuOpen && (
             <div className="absolute bottom-16 left-3 right-3 rounded-xl border border-zinc-800 bg-zinc-950 p-1 shadow-2xl z-50 animate-in fade-in">
               <div className="px-2.5 py-2 border-b border-zinc-800/80 mb-1">
-                <p className="text-xs font-medium text-zinc-200">{CURRENT_USER.name}</p>
-                <p className="text-[11px] text-zinc-500 font-mono">{CURRENT_USER.email}</p>
+                <p className="text-xs font-medium text-zinc-200 truncate">{displayName}</p>
+                <p className="text-[11px] text-zinc-500 font-mono truncate">{displayEmail}</p>
               </div>
               <button
                 type="button"
@@ -184,9 +210,9 @@ export function DashboardSidebar({
               </button>
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   setUserMenuOpen(false);
-                  router.push("/signin");
+                  await signOut({ callbackUrl: "/signin" });
                 }}
                 className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 transition-colors"
               >
@@ -203,12 +229,21 @@ export function DashboardSidebar({
             className="flex w-full items-center justify-between rounded-lg p-1.5 text-left hover:bg-zinc-900/60 transition-colors"
           >
             <div className="flex items-center gap-2.5 truncate">
-              {/* Neutral Avatar */}
-              <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-zinc-800 border border-zinc-700/60 text-xs font-medium text-zinc-200">
-                {CURRENT_USER.initials}
-              </div>
+              {/* Neutral Avatar / Image */}
+              {session?.user?.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={session.user.image}
+                  alt={displayName}
+                  className="size-7 shrink-0 rounded-full border border-zinc-700/60 object-cover"
+                />
+              ) : (
+                <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-zinc-800 border border-zinc-700/60 text-xs font-medium text-zinc-200">
+                  {displayInitial}
+                </div>
+              )}
               <span className="truncate text-xs font-medium text-zinc-200">
-                {CURRENT_USER.name}
+                {displayName}
               </span>
             </div>
             <ChevronsUpDown className="size-3.5 text-zinc-500 shrink-0" />

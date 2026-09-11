@@ -1,50 +1,119 @@
 /* eslint-disable turbo/no-undeclared-env-vars */
-import NextAuth from "next-auth"
+
+import NextAuth, { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import GitHubProvider from "next-auth/providers/github";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prismaClient } from "db";
+import dotenv from "dotenv";
+import path from "path";
 
-const handler = NextAuth({
-    adapter: PrismaAdapter(prismaClient),
-    secret: process.env.NEXTAUTH_SECRET,
-    providers: [
+dotenv.config({ path: path.resolve(process.cwd(), "../../.env") });
+
+export const authOptions: AuthOptions = {
+  adapter: PrismaAdapter(prismaClient),
+
+  secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
+
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60,
+  },
+
+  pages: {
+    signIn: "/signin",
+  },
+
+  providers: [
     CredentialsProvider({
-    name: "Credentials",
-    credentials: {
-      email: { label: "Email", type: "text", placeholder: "jsmith@example.com" },
-      password: { label: "Password", type: "password" }
-    },
-    async authorize(credentials) {
-        const response = await fetch("http://backend:8080/signin",{
-            method : "POST",
+      name: "Credentials",
+
+      credentials: {
+        email: {
+          label: "Email",
+          type: "text",
+          placeholder: "name@example.com",
+        },
+        password: {
+          label: "Password",
+          type: "password",
+        },
+      },
+
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          return null;
+        }
+
+        try {
+          const response = await fetch("http://localhost:8080/signin", {
+            method: "POST",
             headers: {
-                "Content-Type": "application/json",
+              "Content-Type": "application/json",
             },
             body: JSON.stringify({
-            email: credentials?.email,
-            password: credentials?.password,
-            })
-        })
-        if (!response.ok) {
+              email: credentials.email.trim(),
+              password: credentials.password,
+            }),
+          });
+
+          if (!response.ok) {
             return null;
+          }
+
+          const user = await response.json();
+
+          if (!user || !user.id || !user.email) {
+            return null;
+          }
+
+          return {
+            id: String(user.id),
+            email: user.email,
+            name: user.name ?? null,
+            image: user.image ?? null,
+          };
+        } catch (error) {
+          console.error("Credentials authorize connection error:", error);
+          return null;
         }
-        const user = await response.json();
-        return user;
-    }
+      },
     }),
 
     GoogleProvider({
-        clientId: process.env.AUTH_GOOGLE_ID!,
-        clientSecret: process.env.AUTH_GOOGLE_SECRET!,
+      clientId: (process.env.AUTH_GOOGLE_ID || "")!,
+      clientSecret: (process.env.AUTH_GOOGLE_SECRET || "")!,
+      allowDangerousEmailAccountLinking: true,
     }),
 
     GitHubProvider({
-        clientId: process.env.AUTH_GITHUB_ID!,
-        clientSecret: process.env.AUTH_GITHUB_SECRET!
-    })
-    ],
-})
+      clientId: (process.env.AUTH_GITHUB_ID || "")!,
+      clientSecret: (process.env.AUTH_GITHUB_SECRET || "")!,
+      allowDangerousEmailAccountLinking: true,
+    }),
+  ],
 
-export { handler as GET, handler as POST }
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+        token.sub = user.id;
+      }
+
+      return token;
+    },
+
+    async session({ session, token }) {
+      if (session?.user) {
+        session.user.id = (token.id || token.sub) as string;
+      }
+
+      return session;
+    },
+  },
+};
+
+const handler = NextAuth(authOptions);
+
+export { handler as GET, handler as POST };

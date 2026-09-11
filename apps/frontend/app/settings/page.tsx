@@ -1,12 +1,12 @@
 "use client";
-
+import { useSession } from "next-auth/react";
 import React, { useState } from "react";
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout";
-import { CURRENT_USER } from "@/components/dashboard/mock-data";
 
 export default function SettingsPage() {
-  const [name, setName] = useState(CURRENT_USER.name);
-  const [email, setEmail] = useState(CURRENT_USER.email);
+  const { data: session } = useSession();
+  const [name, setName] = useState(session?.user?.name ?? "");
+  const [email, setEmail] = useState(session?.user?.email ?? "");
   const [saved, setSaved] = useState(false);
 
   const handleSave = (e: React.FormEvent) => {

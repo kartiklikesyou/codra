@@ -47,7 +47,7 @@ export const authOptions: AuthOptions = {
         }
 
         try {
-          const response = await fetch("http://localhost:8080/signin", {
+          const response = await fetch("http://backend:8080/signin", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",

@@ -1,45 +1,40 @@
 import { Sandbox } from "e2b";
-const WEBSITE_DIR = "/tmp/website";
+export const WEBSITE_DIR = "/home/user/project";
 
 type File = {
   path : string ,
   content : string 
 }
 
-console.log("Creating E2B Sandbox")
 export async function createWebsite(files: File[]) {
-  console.log("Creating E2B sandbox...");
-
   const sandbox = await Sandbox.create({
     timeoutMs: 60 * 60 * 1000,
   });
 
-  console.log("E2B sandbox created");
-
-  console.log("Creating website directory...");
   await sandbox.commands.run(`mkdir -p ${WEBSITE_DIR}`);
-  console.log("Website directory created");
 
   for (const file of files) {
-    console.log(`Writing file: ${file.path}`);
-
     await sandbox.files.write(
       `${WEBSITE_DIR}/${file.path}`,
       file.content
     );
-
-    console.log(`Wrote file: ${file.path}`);
   }
 
-  console.log("Starting HTTP server...");
-
   await sandbox.commands.run(
-    `nohup python3 -m http.server 3000 --directory ${WEBSITE_DIR} > /tmp/server.log 2>&1 &`
+    `cd ${WEBSITE_DIR} && npm install`,
+    {
+      timeoutMs: 120000
+    }
   );
 
-  console.log("HTTP server started");
+  await sandbox.commands.run(
+    `cd ${WEBSITE_DIR} && export __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=".e2b.app" && npm run dev -- --host 0.0.0.0`,
+    { background: true }
+  );
 
-  const host = sandbox.getHost(3000);
+  await new Promise ((resolve)=>{setTimeout(resolve,3000)})
+
+  const host = sandbox.getHost(5173);
 
   console.log("Preview host:", host);
 

@@ -7,6 +7,8 @@ import GitHubProvider from "next-auth/providers/github";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prismaClient } from "db";
 
+const backendUrl = process.env.BACKEND_URL || "http://localhost:8080";
+
 export const authOptions: AuthOptions = {
   adapter: PrismaAdapter(prismaClient),
 
@@ -43,7 +45,7 @@ export const authOptions: AuthOptions = {
         }
 
         try {
-          const response = await fetch("http://backend:8080/signin", {
+          const response = await fetch(`${backendUrl}/signin`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",

@@ -69,7 +69,7 @@
           setFiles(fetchedFiles);
 
           if (fetchedFiles.length > 0) {
-            const preferred = fetchedFiles.find(f => f.path === "index.html");
+            const preferred = fetchedFiles.find(f => f.path === "src/App.jsx" || f.path === "src/App.tsx") || fetchedFiles.find(f => f.path === "index.html");
             setActiveFile(preferred ? preferred.path : fetchedFiles[0]!.path);
           }
 

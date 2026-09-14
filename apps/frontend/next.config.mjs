@@ -1,3 +1,5 @@
+/* eslint-disable turbo/no-undeclared-env-vars */
+
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
@@ -13,10 +15,11 @@ const nextConfig = {
   reactStrictMode: true,
 
   async rewrites() {
+    const backendUrl = process.env.BACKEND_URL || "http://localhost:8080";
     return [
       {
         source: "/backend/:path*",
-        destination: "http://backend:8080/:path*",
+        destination: `${backendUrl}/:path*`,
       },
     ];
   },

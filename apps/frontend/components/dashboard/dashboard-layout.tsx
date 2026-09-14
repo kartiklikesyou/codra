@@ -143,7 +143,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           name: project.name,
           description,
           updatedAt: "Just now",
-          stack: "HTML,CSS,JS",
+          stack: "React",
           previewUrl: websiteData.previewUrl,
           files: websiteData.files,
         },

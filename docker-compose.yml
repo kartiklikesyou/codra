@@ -8,6 +8,7 @@ services:
       - "3000"
 
     environment:
+      BACKEND_URL: http://backend:8080
       NEXT_PUBLIC_API_URL: /api
 
       DATABASE_URL: ${DATABASE_URL}
@@ -33,14 +34,14 @@ services:
       - "8080"
 
     environment:
+      CORS_ORIGIN: https://codra.kxrtik.in
+      
       DATABASE_URL: ${DATABASE_URL}
 
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY}
 
       E2B_API_KEY: ${E2B_API_KEY}
-
-      CORS_ORIGIN: ${CORS_ORIGIN}
 
   nginx:
     image: nginx:alpine

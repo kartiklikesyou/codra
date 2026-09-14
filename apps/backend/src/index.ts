@@ -9,6 +9,7 @@ import { generateWebsite, modifyWebsite} from "./services/ai";
 import { createWebsite } from "./services/sandbox";
 import { getProject, saveProject, updateProjectFiles } from "./project-store";
 import bcrypt from "bcrypt";
+import { WEBSITE_DIR } from "./services/sandbox";
 
 const app = express();
 
@@ -108,6 +109,15 @@ app.post("/signin", async (req, res) => {
 
 app.post("/website-test", async (req, res) => {
   const { prompt, projectId } = req.body;
+
+  res.setHeader("Content-Type","application/json")
+  
+  const heartbeat = setInterval (()=>{
+    if(!res.writableEnded){
+      res.write(" ")
+    }
+  },10000)
+
   try {
     const aiResult = await generateWebsite(prompt);
     const website = await createWebsite(aiResult.files);
@@ -124,38 +134,59 @@ app.post("/website-test", async (req, res) => {
       files: aiResult.files,
     };
 
-    return res.json(responsePayload);
+    clearInterval(heartbeat)
+
+    return res.end(JSON.stringify(responsePayload))
   } catch (error) {
+    clearInterval(heartbeat)
     console.log(error)
-    return res.status(500).json({
-      error: "Website Generation Failed"
-    })
+    if (!res.headersSent) {
+      return res.status(500).json({ error: "Website Generation Failed" });
+    }
+    return res.end(JSON.stringify({ error: "Website Generation Failed" }));
   }
 });
 
 app.post("/modify-website", async (req, res) => {
-  try {
-    const { projectId, instruction } = req.body;
-    const project = getProject(projectId);
+  const { projectId, instruction } = req.body;
 
+  res.setHeader("Content-Type", "application/json");
+
+  const heartbeat = setInterval(() => {
+    if (!res.writableEnded) {
+      res.write(" ");
+    }
+  }, 10000);
+
+  try {
+    const project = getProject(projectId);
+    
     if (!project) {
-      return res.status(404).json({ error: "Project not found" });
+      clearInterval(heartbeat);
+      if (!res.headersSent) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      return res.end(JSON.stringify({ error: "Project not found" }));
     }
 
     const aiResult = await modifyWebsite(project.files, instruction);
 
     for (const file of aiResult.files) {
-      await project.sandbox.files.write(`/tmp/website/${file.path}`, file.content);
+      await project.sandbox.files.write(`${WEBSITE_DIR}/${file.path}`, file.content);
     }
 
     updateProjectFiles(projectId, aiResult.files);
 
-    return res.json({ message: aiResult.message, files: aiResult.files });
+    clearInterval(heartbeat);
+    
+    return res.end(JSON.stringify({ message: aiResult.message, files: aiResult.files }));
   } catch (error) {
-    console.log(error)
-    return res.status(500).json({
-      error: "Website Modification Failed"
-    })
+    clearInterval(heartbeat);
+    console.error(error);
+    if (!res.headersSent) {
+      return res.status(500).json({ error: "Website Modification Failed" });
+    }
+    return res.end(JSON.stringify({ error: "Website Modification Failed" }));
   }
 });
 

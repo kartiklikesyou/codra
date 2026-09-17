@@ -8,6 +8,7 @@ type WebsiteFile = {
 type ProjectData = {
   files: WebsiteFile[];
   sandbox: Sandbox;
+  previewUrl ?: string
 };
 
 const projects =new Map<string, ProjectData>()
@@ -15,11 +16,13 @@ const projects =new Map<string, ProjectData>()
 export function saveProject(
     projectId : string,
     files : WebsiteFile[],
-    sandbox : Sandbox
+    sandbox : Sandbox,
+    previewUrl ?: string
 ){
     projects.set(projectId,{
         files,
-        sandbox
+        sandbox,
+        previewUrl 
     })
 }
 

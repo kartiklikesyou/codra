@@ -162,6 +162,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   };
 
+  useEffect(()=>{
+    if (status == "unauthenticated"){
+      router.push("/signin")
+    }
+  },[router,status])
+
   if (status === "loading") {
     return null;
   }

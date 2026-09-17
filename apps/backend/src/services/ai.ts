@@ -322,6 +322,10 @@ When a component becomes difficult to read because of an enormous Tailwind class
 
 Tailwind is a styling tool, NOT a reason to sacrifice code readability.
 
+* NEVER use @layer directives in src/App.css. 
+* If you write custom classes in src/App.css, write them directly with @apply or standard CSS without wrapping them in @layer.
+* If you must use @layer, place it strictly inside src/index.css directly below the @tailwind directives.
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PREMIUM TAILWIND DESIGN
@@ -951,7 +955,7 @@ Your responsibility is to make the requested changes while preserving the existi
 Do NOT regenerate the website from scratch unless the user's request explicitly requires a complete redesign.
 
 USER'S REQUEST:
-${prompt}
+${instruction}
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -13,15 +13,14 @@ export async function createWebsite(files: File[]) {
 
   await sandbox.commands.run(`mkdir -p ${WEBSITE_DIR}`);
 
-  for (const file of files) {
-    await sandbox.files.write(
-      `${WEBSITE_DIR}/${file.path}`,
-      file.content
-    );
-  }
+  await Promise.all(
+    files.map((file) => 
+      sandbox.files.write(`${WEBSITE_DIR}/${file.path}`,file.content)
+    )
+  ) 
 
   await sandbox.commands.run(
-    `cd ${WEBSITE_DIR} && npm install`,
+    `cd ${WEBSITE_DIR} && npm install --no-audit --no-fund --prefer-offline`,
     {
       timeoutMs: 120000
     }
@@ -31,9 +30,7 @@ export async function createWebsite(files: File[]) {
     `cd ${WEBSITE_DIR} && export __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=".e2b.app" && npm run dev -- --host 0.0.0.0`,
     { background: true }
   );
-
-  await new Promise ((resolve)=>{setTimeout(resolve,3000)})
-
+    
   const host = sandbox.getHost(5173);
 
   console.log("Preview host:", host);

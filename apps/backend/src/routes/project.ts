@@ -48,7 +48,112 @@ router.get("/:id",async (req,res)=>{
         }
     })
     const projectData = getProject(pId)
-    return res.json({ ...project, files: projectData?.files ?? [] })
+    return res.json({ ...project, files: projectData?.files ?? [], previewUrl : projectData?.previewUrl ?? null  })
+})
+
+router.post("/:id/export/github", async(req,res)=>{
+    const {id} =req.params
+    const {userId, repoName, isPrivate, files} = req.body
+
+    const account = await prismaClient.account.findFirst({
+        where: {
+            userId: String(userId),
+            provider: "github" 
+        }
+    });
+
+    if (!account?.access_token) {
+        return res.status(400).json({
+        error: "No GitHub account linked. Please sign in with GitHub to export.",
+        });
+    }
+
+    const token = account.access_token
+    const headers = {
+        Authorization : `Bearer ${token}`,
+        Accept : "application.vnd.github+json",
+        "User-Agent" : "Codra-App"
+    }
+
+    try {
+    const createRepoRes = await fetch("https://api.github.com/user/repos", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        name: repoName,
+        private: Boolean(isPrivate),
+        auto_init: true
+      }),
+    });
+    if (!createRepoRes.ok) {
+      const errorData = await createRepoRes.json().catch(() => ({}));
+      return res.status(createRepoRes.status).json({
+        error: errorData.message || "Failed to create GitHub repository",
+      });
+    }
+    const repoData = await createRepoRes.json();
+    const owner = repoData.owner.login;
+    const repo = repoData.name;
+
+    if (Array.isArray(files) && files.length > 0) {
+      const tree = files.map((f: { path: string; content: string }) => ({
+        path: f.path.startsWith("/") ? f.path.slice(1) : f.path,
+        mode: "100644",
+        type: "blob",
+        content: f.content,
+      }));
+
+      const refRes = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/git/ref/heads/main`,
+        { headers }
+      );
+      const refData = await refRes.json();
+      const latestCommitSha = refData.object.sha;
+
+      const treeRes = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/git/trees`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ base_tree: latestCommitSha, tree }),
+        }
+      );
+      const treeResult = await treeRes.json();
+
+      const commitRes = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/git/commits`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            message: "Initial commit from Codra",
+            tree: treeResult.sha,
+            parents: [latestCommitSha],
+          }),
+        }
+      );
+      const commitResult = await commitRes.json();
+
+      await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/main`,
+        {
+          method: "PATCH",
+          headers,
+          body: JSON.stringify({ sha: commitResult.sha }),
+        }
+      );
+    }
+
+    return res.json({
+      success: true,
+      repoUrl: repoData.html_url,
+      fullName: repoData.full_name,
+    });
+  }catch(e){
+        console.error("GitHub export error:", e);
+        return res.status(500).json({ error: "Failed to export project to GitHub" });
+    }
+
 })
 
 router.delete("/:id", async (req, res) => {

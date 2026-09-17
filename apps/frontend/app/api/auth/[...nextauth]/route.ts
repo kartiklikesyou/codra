@@ -7,7 +7,13 @@ import GitHubProvider from "next-auth/providers/github";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prismaClient } from "db";
 
-const backendUrl = process.env.BACKEND_URL || "http://localhost:8080";
+if (process.env.NODE_ENV !== "production") {
+  process.env.NEXTAUTH_URL = "http://localhost:3000";
+} else if (!process.env.NEXTAUTH_URL) {
+  process.env.NEXTAUTH_URL = "https://codra.kxrtik.in";
+}
+
+const backendUrl = process.env.BACKEND_URL || "http://localhost:8080"
 
 export const authOptions: AuthOptions = {
   adapter: PrismaAdapter(prismaClient),
@@ -89,10 +95,51 @@ export const authOptions: AuthOptions = {
       clientId: (process.env.AUTH_GITHUB_ID || "")!,
       clientSecret: (process.env.AUTH_GITHUB_SECRET || "")!,
       allowDangerousEmailAccountLinking: true,
+      authorization : {
+        params : {
+          scope : "read:user user:email repo",
+          prompt: "consent"
+        }
+      }
     }),
   ],
 
   callbacks: {
+    async signIn({ user, account }) {
+      if (account?.provider === "github" && account.access_token) {
+        try {
+          await prismaClient.account.updateMany({
+            where: {
+              provider: "github",
+              providerAccountId: account.providerAccountId,
+            },
+            data: {
+              access_token: account.access_token,
+              expires_at: account.expires_at,
+              refresh_token: account.refresh_token,
+              scope: account.scope,
+            },
+          });
+        } catch (err) {
+          console.error("Failed to auto-update GitHub token:", err);
+        }
+      }
+      return true;
+    },
+
+    async redirect({ url, baseUrl }) {
+      if (url === baseUrl || url === "/" || url === `${baseUrl}/`) {
+        return `${baseUrl}/dashboard`;
+      }
+      if (url.startsWith("/")) {
+        return `${baseUrl}${url}`;
+      }
+      if (new URL(url).origin === baseUrl) {
+        return url;
+      }
+      return `${baseUrl}/dashboard`;
+    },
+
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;

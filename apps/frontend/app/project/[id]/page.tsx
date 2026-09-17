@@ -4,6 +4,7 @@
   import Link from "next/link";
   import { useParams } from "next/navigation";
   import { GitHubIcon } from "@/components/auth/icons";
+  import { GitHubExportModal } from "@/components/project/github-export-modal";
   import { useSearchParams } from "next/navigation";
   import { Project } from "@/components/dashboard/mock-data";
   import {
@@ -20,16 +21,40 @@
 
   export default function ProjectWorkspacePage() {
     const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
-
-    const searchParams = useSearchParams();
-    const previewUrl = searchParams.get("previewUrl");
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
     const params = useParams();
     const projectId = params?.id as string;
 
+    const searchParams = useSearchParams();
+    const urlParam = searchParams.get("previewUrl");
+    const [previewUrl, setpreviewUrl] = useState<string | null>(()=>{
+      if(urlParam) return urlParam
+
+      if(typeof window !== "undefined"){
+        return localStorage.getItem(`codra_preview_${projectId}`)
+      }
+
+      return null
+    })
+
+    const [files, setFiles] = useState<ProjectFile[]>(()=>{
+      if(typeof window !== "undefined"  && projectId){
+        const saved = localStorage.getItem(`codra_files_${projectId}`)
+        if(saved){
+          try{
+            return JSON.parse(saved)
+          }catch(e){
+            console.log(e)
+            return e
+          }
+        }
+      }
+      return []
+    });
+
     const [project, setProject] = useState<Project | null>(null);
     const [loading, setLoading] = useState(true);
-    const [files, setFiles] = useState<ProjectFile[]>([]);
 
     const [activeTab, setActiveTab] =
       useState<"code" | "preview">("preview");
@@ -66,7 +91,15 @@
           setProject(loadedProject);
 
           const fetchedFiles: ProjectFile[] = data.files ?? [];
-          setFiles(fetchedFiles);
+          if(fetchedFiles.length>0){
+            setFiles(fetchedFiles);
+            localStorage.setItem(`codra_files_${projectId}`,JSON.stringify(fetchedFiles))
+          }
+          
+          if(data.previewUrl){
+            setpreviewUrl(data.previewUrl)
+            localStorage.setItem(`codra_preview_${projectId}`,data.previewUrl)
+          }
 
           if (fetchedFiles.length > 0) {
             const preferred = fetchedFiles.find(f => f.path === "src/App.jsx" || f.path === "src/App.tsx") || fetchedFiles.find(f => f.path === "index.html");
@@ -225,8 +258,8 @@
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900/60 px-2.5 py-1 text-xs text-zinc-300 hover:text-white transition-colors"
-            >
+              onClick={() => setIsExportModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900/60 px-2.5 py-1 text-xs text-zinc-300 hover:text-white transition-colors">
               <GitHubIcon className="size-3 text-zinc-400" />
               <span>Export</span>
             </button>
@@ -361,6 +394,15 @@
             </div>
           </aside>
         </div>
+
+        {/* GitHub Export Modal */}
+        <GitHubExportModal
+          isOpen={isExportModalOpen}
+          onClose={() => setIsExportModalOpen(false)}
+          projectName={project?.name || "my-project"}
+          projectId={projectId}
+          files={files}
+        />
       </div>
     );
   }

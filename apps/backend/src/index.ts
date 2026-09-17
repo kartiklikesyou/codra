@@ -10,6 +10,7 @@ import { createWebsite } from "./services/sandbox";
 import { getProject, saveProject, updateProjectFiles } from "./project-store";
 import bcrypt from "bcrypt";
 import { WEBSITE_DIR } from "./services/sandbox";
+import z from "zod";
 
 const app = express();
 
@@ -23,15 +24,22 @@ app.use(express.json());
 
 app.use("/api/projects",projectRoutes)
 
-app.post("/signup", async (req, res) => {
-  const { email, password } = req.body;
+const signUpSchema = z.object({
+  email : z.string().trim().toLowerCase().email("Invalid email Format").
+          refine((val)=>val.endsWith("@gmail.com"),{message : "Only @gmail.com email addresses are allowed"}),
+  password : z.string()
+})
 
-  if (!email || !password) {
-    res.status(400).json({
-      error: "email and password are required",
+app.post("/signup", async (req, res) => {
+  const result = signUpSchema.safeParse(req.body)
+
+  if (!result.success) {
+    return res.status(400).json({
+      error: result.error.errors[0]?.message || "Invalid input",
     });
-    return;
   }
+
+  const {email, password} = result.data
 
   try {
     const hashedPassword = await bcrypt.hash(password, 12);
@@ -125,7 +133,8 @@ app.post("/website-test", async (req, res) => {
     saveProject(
       projectId,
       aiResult.files,
-      website.sandbox
+      website.sandbox,
+      website.url
     );
 
     const responsePayload = {

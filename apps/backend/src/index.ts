@@ -6,11 +6,11 @@ import cors from "cors";
 import projectRoutes from "./routes/project";
 import type { Request, Response, NextFunction } from "express";
 import { generateWebsite, modifyWebsite} from "./services/ai";
-import { createWebsite } from "./services/sandbox";
 import { getProject, saveProject, updateProjectFiles } from "./project-store";
 import bcrypt from "bcrypt";
 import { WEBSITE_DIR } from "./services/sandbox";
 import z from "zod";
+import { createWebsite, updateWebsite } from "./services/sandbox";
 
 const app = express();
 
@@ -180,9 +180,7 @@ app.post("/modify-website", async (req, res) => {
 
     const aiResult = await modifyWebsite(project.files, instruction);
 
-    for (const file of aiResult.files) {
-      await project.sandbox.files.write(`${WEBSITE_DIR}/${file.path}`, file.content);
-    }
+    await updateWebsite(project.sandbox, aiResult.files);
 
     updateProjectFiles(projectId, aiResult.files);
 

@@ -804,6 +804,7 @@ index.html MUST load:
 
 main.jsx must correctly render App and import index.css.
 
+src/App.jsx MUST always end with 'export default App;'. Never omit the default export.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 15. ZERO PHANTOM IMPORTS

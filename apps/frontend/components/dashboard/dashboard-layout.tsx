@@ -117,44 +117,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
       const project = await projectResponse.json();
 
-      const websiteResponse = await fetch(
-        `/backend/website-test`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            projectId: project.id,
-            prompt: description,
-          }),
-        }
-      );
-
-      if (!websiteResponse.ok) {
-        throw new Error("Website generation failed");
-      }
-
-      const websiteData = await websiteResponse.json();
-
-      setProjects((prev) => [
-        {
-          id: project.id,
-          name: project.name,
-          description,
-          updatedAt: "Just now",
-          stack: "React",
-          previewUrl: websiteData.previewUrl,
-          files: websiteData.files,
-        },
-        ...prev,
-      ]);
-
       setIsModalOpen(false);
 
       router.push(
-        `/project/${project.id}?previewUrl=${encodeURIComponent(
-          websiteData.previewUrl
+        `/project/${project.id}?prompt=${encodeURIComponent(
+          description
         )}`
       );
     } catch (error) {

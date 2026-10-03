@@ -1,6 +1,7 @@
 "use client";
 
 import CodeEditor from "@/components/project/code-editor";
+import FileExplorer from "@/components/project/file-explorer";
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -10,8 +11,6 @@ import { useSearchParams } from "next/navigation";
 import { Project } from "@/components/dashboard/mock-data";
 import {
   ArrowLeft,
-  FolderTree,
-  FileCode,
   Send,
   Code2,
   Laptop,
@@ -617,40 +616,10 @@ export default function ProjectWorkspacePage() {
         </div>
       </header>
 
-      {/* Main 3-Pane Body */}
+      {/* Main Body */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left: Explorer Pane */}
-        <aside className="hidden md:flex w-52 shrink-0 flex-col border-r border-zinc-800/60 bg-[#0a0a0c] p-3 text-xs font-mono">
-          <div className="flex items-center gap-1.5 text-zinc-500 uppercase tracking-wider text-[10px] mb-2 px-1">
-            <FolderTree className="size-3" />
-            <span>Files</span>
-          </div>
-
-          <div className="space-y-0.5 text-zinc-400">
-            {files.length === 0 ? (
-              <div className="text-zinc-600 px-2 py-1 text-[11px]">No files available.</div>
-            ) : (
-              files.map(file => (
-                <button
-                  key={file.path}
-                  type="button"
-                  onClick={() => setActiveFile(file.path)}
-                  className={`w-full text-left px-2 py-1 rounded flex items-center gap-1.5 transition-colors ${
-                    activeFile === file.path
-                      ? "bg-zinc-800/70 text-zinc-100"
-                      : "hover:text-zinc-200"
-                  }`}
-                >
-                  <FileCode className="size-3 text-zinc-500 shrink-0" />
-                  <span className="truncate">{file.path}</span>
-                </button>
-              ))
-            )}
-          </div>
-        </aside>
-
         {/* Center: Editor / Live Canvas */}
-        <main className="flex-1 flex flex-col overflow-hidden bg-[#060608] border-r border-zinc-800/60">
+        <main className="flex-1 flex overflow-hidden bg-[#060608] border-r border-zinc-800/60">
           {activeTab === "preview" ? (
             <div className="flex-1 flex flex-col p-4 overflow-hidden">
               {/* Browser Mockup Bar */}
@@ -684,22 +653,32 @@ export default function ProjectWorkspacePage() {
               </div>
             </div>
           ) : (
-            <CodeEditor
-              file={activeFileData}
-              onChange={(content) => {
-                setFiles((prev) =>
-                  prev.map((file) =>
-                    file.path === activeFile
-                      ? {
-                          ...file,
-                          content,
-                        }
-                      : file
-                  )
-                );
-                setSaveStatus("saving")
-              }}
-            />
+            <div className="flex-1 flex overflow-hidden">
+              <FileExplorer
+                files={files}
+                activeFile={activeFile}
+                onFileSelect={(path) => setActiveFile(path)}
+                projectName={project.name}
+              />
+              <div className="flex-1 overflow-hidden h-full">
+                <CodeEditor
+                  file={activeFileData}
+                  onChange={(content) => {
+                    setFiles((prev) =>
+                      prev.map((file) =>
+                        file.path === activeFile
+                          ? {
+                              ...file,
+                              content,
+                            }
+                          : file
+                      )
+                    );
+                    setSaveStatus("saving")
+                  }}
+                />
+              </div>
+            </div>
           )}
         </main>
 

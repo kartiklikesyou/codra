@@ -1,5 +1,6 @@
 "use client";
 
+import CodeEditor from "@/components/project/code-editor";
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -32,6 +33,33 @@ type SSEEvent = {
   event :string, 
   data : any
 }
+
+type ActivityStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "error";
+
+type AgentActivity = {
+  id: string,
+  message : string,
+  status : ActivityStatus
+}
+
+type ChatMessage = 
+  | {
+      id : string,
+      sender : "user",
+      text : string
+  }
+  | {
+    id : string,
+    sender : "agent",
+    text ?: string,
+    activities : AgentActivity[],
+    isStreaming?: boolean,
+    detailsOpen?: boolean
+  }
 
 async function streamSSE(
   res: Response,
@@ -92,42 +120,16 @@ async function streamSSE(
   }
 }   
 
-type ActivityStatus =
-  | "pending"
-  | "running"
-  | "completed"
-  | "error";
-
-type AgentActivity = {
-  id: string,
-  message : string,
-  status : ActivityStatus
-}
-
-type ChatMessage = 
-  | {
-      id : string,
-      sender : "user",
-      text : string
-  }
-  | {
-    id : string,
-    sender : "agent",
-    text ?: string,
-    activities : AgentActivity[],
-    isStreaming?: boolean,
-    detailsOpen?: boolean
-  }
-
 export default function ProjectWorkspacePage() {
-  const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
-  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-
   const params = useParams();
   const projectId = params?.id as string;
 
   const searchParams = useSearchParams();
   const urlParam = searchParams.get("previewUrl");
+
+  const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  
   const [previewUrl, setpreviewUrl] = useState<string | null>(()=>{
     if(urlParam) return urlParam
 
@@ -155,16 +157,15 @@ export default function ProjectWorkspacePage() {
 
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const [activeTab, setActiveTab] =
-    useState<"code" | "preview">("preview");
-
+  const [activeTab, setActiveTab] =useState<"code" | "preview">("preview");
   const [activeFile, setActiveFile] = useState<string>("");
-
   const [chatPrompt, setChatPrompt] = useState("");
-
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [saveStatus,setSaveStatus]=useState<"saved"|"saving"|"failed">("saved")
+
   const initialPromptTriggered = useRef(false);
+
+  const activeFileData =files.find((file) => file.path === activeFile) ?? null;
 
   const updateAgentActivity = (activity : AgentActivity) => {
     setMessages((prev)=>
@@ -312,91 +313,6 @@ export default function ProjectWorkspacePage() {
     }
   };
 
-  useEffect(() => {
-    const fetchProject = async () => {
-      try {
-        const response = await fetch(
-          `/backend/api/projects/${projectId}`
-        );
-
-        if (!response.ok) {
-
-          throw new Error("Project not found");
-        }
-
-        const data = await response.json();
-
-        const loadedProject: Project = {
-          id: data.id,
-          name: data.name,
-          description: data.description,
-          updatedAt: data.UpdatedAt,
-        };
-
-        setProject(loadedProject);
-
-        const fetchedFiles: ProjectFile[] = data.files ?? [];
-        if(fetchedFiles.length>0){
-          setFiles(fetchedFiles);
-          localStorage.setItem(`codra_files_${projectId}`,JSON.stringify(fetchedFiles))
-        }
-        
-        if(data.previewUrl){
-          setpreviewUrl(data.previewUrl)
-          localStorage.setItem(`codra_preview_${projectId}`,data.previewUrl)
-        }
-
-        if (fetchedFiles.length > 0) {
-          const preferred = fetchedFiles.find(f => f.path === "src/App.jsx" || f.path === "src/App.tsx") || fetchedFiles.find(f => f.path === "index.html");
-          setActiveFile(preferred ? preferred.path : fetchedFiles[0]!.path);
-        }
-
-        const promptParam = searchParams.get("prompt");
-        if (promptParam && !initialPromptTriggered.current) {
-          initialPromptTriggered.current = true;
-          generateInitialWebsite(promptParam);
-        } else if(!promptParam && messages.length===0) {
-          setMessages([
-            {
-              id: crypto.randomUUID(),
-              sender: "agent",
-              text: `Initialized ${loadedProject.name}. What would you like to build or modify?`,
-              activities: [],
-              isStreaming: false,
-              detailsOpen: false,
-            },
-          ]);
-        }
-      } catch (error) {
-        console.error("Failed to fetch project:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (projectId) {
-      fetchProject();
-    }
-  }, [projectId]);
-
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-[#08080a] text-zinc-400">
-        Loading project...
-      </div>
-    );
-  }
-
-  if (!project) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-[#08080a] text-zinc-400">
-        Project not found.
-      </div>
-    );
-  }
-
-
-
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -517,6 +433,118 @@ export default function ProjectWorkspacePage() {
     }
   };
 
+  useEffect(()=>{
+    if(!activeFileData) return 
+
+    const timeout = setTimeout(async() => {
+      try{
+        setSaveStatus("saving")
+        const response = await fetch("/backend/save-file",{
+          method:"POST",
+          headers:{
+            "Content-Type":"application/json"
+          },
+          body:JSON.stringify({
+            projectId,
+            path:activeFileData.path,
+            content: activeFileData.content 
+          })
+        })
+        if (!response.ok) {
+        throw new Error("Save failed");
+        }
+        setSaveStatus("saved")
+      }catch(e){
+        console.error("Autosave failed",e)
+        setSaveStatus("failed")
+      }
+    }, 1000);
+    return ()=>clearTimeout(timeout)
+  },[activeFileData,projectId])
+
+  useEffect(() => {
+    const fetchProject = async () => {
+      try {
+        const response = await fetch(
+          `/backend/api/projects/${projectId}`
+        );
+
+        if (!response.ok) {
+
+          throw new Error("Project not found");
+        }
+
+        const data = await response.json();
+
+        const loadedProject: Project = {
+          id: data.id,
+          name: data.name,
+          description: data.description,
+          updatedAt: data.UpdatedAt,
+        };
+
+        setProject(loadedProject);
+
+        const fetchedFiles: ProjectFile[] = data.files ?? [];
+        if(fetchedFiles.length>0){
+          setFiles(fetchedFiles);
+          localStorage.setItem(`codra_files_${projectId}`,JSON.stringify(fetchedFiles))
+        }
+        
+        if(data.previewUrl){
+          setpreviewUrl(data.previewUrl)
+          localStorage.setItem(`codra_preview_${projectId}`,data.previewUrl)
+        }
+
+        if (fetchedFiles.length > 0) {
+          const preferred = fetchedFiles.find(f => f.path === "src/App.jsx" || f.path === "src/App.tsx") || fetchedFiles.find(f => f.path === "index.html");
+          setActiveFile(preferred ? preferred.path : fetchedFiles[0]!.path);
+        }
+
+        const promptParam = searchParams.get("prompt");
+        if (promptParam && !initialPromptTriggered.current) {
+          initialPromptTriggered.current = true;
+          generateInitialWebsite(promptParam);
+        } else if(!promptParam && messages.length===0) {
+          setMessages([
+            {
+              id: crypto.randomUUID(),
+              sender: "agent",
+              text: `Initialized ${loadedProject.name}. What would you like to build or modify?`,
+              activities: [],
+              isStreaming: false,
+              detailsOpen: false,
+            },
+          ]);
+        }
+      } catch (error) {
+        console.error("Failed to fetch project:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (projectId) {
+      fetchProject();
+    }
+  }, [projectId]);
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#08080a] text-zinc-400">
+        Loading project...
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#08080a] text-zinc-400">
+        Project not found.
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen flex-col bg-[#08080a] text-zinc-100 font-sans overflow-hidden select-none">
       {/* Top Navbar */}
@@ -566,6 +594,19 @@ export default function ProjectWorkspacePage() {
 
         {/* Right Actions */}
         <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 text-xs">
+            {saveStatus === "saving" && (
+              <span className="text-white/50">Saving...</span>
+            )}
+
+            {saveStatus === "saved" && (
+              <span className="text-white/40">Saved</span>
+            )}
+
+            {saveStatus === "failed" && (
+              <span className="text-red-400">Save failed</span>
+            )}
+          </div>
           <button
             type="button"
             onClick={() => setIsExportModalOpen(true)}
@@ -643,12 +684,22 @@ export default function ProjectWorkspacePage() {
               </div>
             </div>
           ) : (
-            <pre className="flex-1 p-4 font-mono text-xs text-zinc-300 overflow-auto bg-[#070709] whitespace-pre-wrap leading-relaxed">
-              {files.find(f => f.path === activeFile)?.content
-                ?? (files.length === 0
-                  ? "No files loaded. Generate the project first."
-                  : "Select a file to view its contents.")}
-            </pre>
+            <CodeEditor
+              file={activeFileData}
+              onChange={(content) => {
+                setFiles((prev) =>
+                  prev.map((file) =>
+                    file.path === activeFile
+                      ? {
+                          ...file,
+                          content,
+                        }
+                      : file
+                  )
+                );
+                setSaveStatus("saving")
+              }}
+            />
           )}
         </main>
 

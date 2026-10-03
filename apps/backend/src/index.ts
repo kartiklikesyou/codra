@@ -12,6 +12,7 @@ import { WEBSITE_DIR } from "./services/sandbox";
 import z from "zod";
 import { createWebsite, updateWebsite } from "./services/sandbox";
 import { send } from "process";
+import { string } from "zod/v4";
 
 const app = express();
 
@@ -332,6 +333,47 @@ app.post("/modify-website", async (req, res) => {
     return res.end()
   }
 });
+
+app.post("/save-file",async(req,res)=>{
+  try{
+    const {projectId, path, content} = req.body
+    if(!projectId||!path||typeof content !== "string"){
+      return res.status(400).json({
+        error: "ProjectId, Path &  Content are required"
+      })
+    }
+
+    const project = getProject(projectId)
+
+    if(!project){
+      return res.status(404).json({
+        error: "Project not found"
+      })
+    }
+    
+    await project.sandbox.files.write(
+      `${WEBSITE_DIR}/${path}`,
+      content
+    )
+
+    updateProjectFiles(projectId,[
+      ...project.files.map((file)=>{
+        return file.path===path ? {...file, content} : file
+      })
+    ])
+
+    return res.json({
+      success: true,
+      path,
+    });
+  }catch (error) {
+    console.error("Save file error:", error);
+
+    return res.status(500).json({
+      error: "Failed to save file",
+    });
+  }
+})
 
 // Global Error Handler
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

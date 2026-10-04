@@ -18,6 +18,8 @@ export function NewProjectModal({
 }: NewProjectModalProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (initialPrompt) {
@@ -27,18 +29,31 @@ export function NewProjectModal({
         setName(words.charAt(0).toUpperCase() + words.slice(1));
       }
     }
-  }, [initialPrompt]);
+    setError(null);
+  }, [initialPrompt, isOpen]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setError("Project name cannot be empty");
+      return;
+    }
 
-    onCreate(name.trim(), description.trim());
-    setName("");
-    setDescription("");
-    onClose();
+    try {
+      setIsSubmitting(true);
+      setError(null);
+      await onCreate(trimmedName, description.trim());
+      setName("");
+      setDescription("");
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create project");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -66,6 +81,12 @@ export function NewProjectModal({
           </p>
         </div>
 
+        {error && (
+          <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 p-2.5 text-xs text-red-400">
+            {error}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <label htmlFor="modal-proj-name" className="block text-xs text-zinc-400">
@@ -77,8 +98,12 @@ export function NewProjectModal({
               required
               placeholder="e.g. My Next.js App"
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="h-9 w-full rounded-lg border border-zinc-800 bg-[#141418] px-3 text-xs text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-zinc-600"
+              onChange={(e) => {
+                setName(e.target.value);
+                if (error) setError(null);
+              }}
+              disabled={isSubmitting}
+              className="h-9 w-full rounded-lg border border-zinc-800 bg-[#141418] px-3 text-xs text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-zinc-600 disabled:opacity-50"
             />
           </div>
 
@@ -92,7 +117,8 @@ export function NewProjectModal({
               placeholder="Describe what you want to build..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full resize-none rounded-lg border border-zinc-800 bg-[#141418] p-2.5 text-xs text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-zinc-600"
+              disabled={isSubmitting}
+              className="w-full resize-none rounded-lg border border-zinc-800 bg-[#141418] p-2.5 text-xs text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-zinc-600 disabled:opacity-50"
             />
           </div>
 
@@ -100,16 +126,17 @@ export function NewProjectModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+              disabled={isSubmitting}
+              className="rounded-lg px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 transition-colors disabled:opacity-40"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={!name.trim()}
+              disabled={!name.trim() || isSubmitting}
               className="rounded-lg bg-zinc-100 px-3.5 py-1.5 text-xs font-medium text-zinc-900 hover:bg-white disabled:opacity-40 transition-colors"
             >
-              Create
+              {isSubmitting ? "Creating..." : "Create"}
             </button>
           </div>
         </form>

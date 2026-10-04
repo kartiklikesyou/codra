@@ -12,6 +12,7 @@ dotenv.config({ path: path.resolve(__dirname, ".env") });
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "standalone",
   reactStrictMode: true,
 
   async rewrites() {

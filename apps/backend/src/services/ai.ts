@@ -116,36 +116,46 @@ async function generateWithFallback(
     };
 
   } catch (openAIError) {
-
-    console.error("OpenAI failed, falling back to Gemini");
+    console.error("OpenAI failed, checking Gemini fallback...");
     console.error(openAIError);
 
-    const geminiFiles = cloneFiles(files);
-
-    const tools: Record<string, any> = {
-      writeFiles: createWriteFileTool(geminiFiles),
-    };
-
-    if (geminiFiles.length > 0) {
-      tools.readFiles = createReadFileTools(geminiFiles);
+    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+      console.warn("GOOGLE_GENERATIVE_AI_API_KEY not configured. Cannot fallback to Gemini.");
+      throw new Error("AI generation failed. Primary provider unavailable and fallback is not configured.");
     }
 
-    const result = await generateText({
-      model: google("gemini-3.6-flash"),
-      tools,
-      prompt
-    });
+    try {
+      console.log("Attempting Gemini fallback...");
+      const geminiFiles = cloneFiles(files);
 
-    console.log("Gemini succeeded");
-    console.log(`Whole Generation took ${Date.now() - start}ms`);
+      const tools: Record<string, any> = {
+        writeFiles: createWriteFileTool(geminiFiles),
+      };
 
-    files.length = 0;
-    files.push(...geminiFiles);
+      if (geminiFiles.length > 0) {
+        tools.readFiles = createReadFileTools(geminiFiles);
+      }
 
-    return {
-      message: result.text,
-      files,
-    };
+      const result = await generateText({
+        model: google("gemini-3.6-flash"),
+        tools,
+        prompt,
+      });
+
+      console.log("Gemini succeeded");
+      console.log(`Whole Generation took ${Date.now() - start}ms`);
+
+      files.length = 0;
+      files.push(...geminiFiles);
+
+      return {
+        message: result.text,
+        files,
+      };
+    } catch (geminiError) {
+      console.error("Gemini fallback also failed:", geminiError);
+      throw new Error("AI generation failed across all available providers. Please try again later.");
+    }
   }
 }
  

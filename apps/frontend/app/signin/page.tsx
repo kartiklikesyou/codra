@@ -9,6 +9,12 @@ import { PasswordInput } from "@/components/auth/password-input";
 import { OAuthButtons } from "@/components/auth/oauth-buttons";
 import { AuthErrorAlert } from "@/components/auth/auth-error-alert";
 import { SpinnerIcon } from "@/components/auth/icons";
+import { z } from "zod";
+
+const signinSchema = z.object({
+  email: z.string().trim().email("Please enter a valid email address"),
+  password: z.string().min(1, "Password is required"),
+});
 
 export default function SigninPage() {
   const [email, setEmail] = useState("");
@@ -21,9 +27,10 @@ export default function SigninPage() {
     e.preventDefault();
     if (isLoading) return;
 
-    if (!email.trim() || !password) {
-    setError("Please enter both email and password.");
-    return;
+    const validation = signinSchema.safeParse({ email, password });
+    if (!validation.success) {
+      setError(validation.error.errors[0]?.message || "Please enter valid credentials.");
+      return;
     }
 
     try {

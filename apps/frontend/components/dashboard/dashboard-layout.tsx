@@ -93,7 +93,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     description: string
   ) => {
     if (!session?.user?.id) {
-      return;
+      throw new Error("You must be logged in to create a project");
     }
 
     try {
@@ -112,7 +112,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       );
 
       if (!projectResponse.ok) {
-        throw new Error("Failed to create project");
+        const errorData = await projectResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to create project");
       }
 
       const project = await projectResponse.json();
@@ -126,6 +127,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       );
     } catch (error) {
       console.error("Failed to create project:", error);
+      throw error;
     }
   };
 

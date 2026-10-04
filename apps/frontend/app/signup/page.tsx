@@ -9,6 +9,19 @@ import { PasswordInput } from "@/components/auth/password-input";
 import { OAuthButtons } from "@/components/auth/oauth-buttons";
 import { AuthErrorAlert } from "@/components/auth/auth-error-alert";
 import { SpinnerIcon } from "@/components/auth/icons";
+import { z } from "zod";
+
+const signupSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email("Please enter a valid email address")
+    .refine((val) => val.endsWith("@gmail.com"), {
+      message: "Only @gmail.com email addresses are allowed",
+    }),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
 
 export default function SignupPage() {
     const [email, setEmail] = useState("");
@@ -21,8 +34,9 @@ export default function SignupPage() {
     e.preventDefault();
     if (isLoading) return;
 
-    if (!email.trim() || !password) {
-      setError("Please enter both email and password.");
+    const validation = signupSchema.safeParse({ email, password });
+    if (!validation.success) {
+      setError(validation.error.errors[0]?.message || "Invalid input.");
       return;
     }
 

@@ -2,12 +2,12 @@
 
 import CodeEditor from "@/components/project/code-editor";
 import FileExplorer from "@/components/project/file-explorer";
+import PreviewLoading from "@/components/project/preview-loading";
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { GitHubIcon } from "@/components/auth/icons";
 import { GitHubExportModal } from "@/components/project/github-export-modal";
-import { useSearchParams } from "next/navigation";
 import { Project } from "@/components/dashboard/mock-data";
 import {
   ArrowLeft,
@@ -62,64 +62,60 @@ type ChatMessage =
 
 async function streamSSE(
   res: Response,
-  onEvent: (event:SSEEvent) => void //callback fired for each event 
- ){
-  if(!res.body){
-    throw new Error ("Streaming not supported")
+  onEvent: (event: SSEEvent) => void
+) {
+  if (!res.body) {
+    throw new Error("Streaming not supported");
   }
-  const reader = res.body.getReader()
-  const decoder = new TextDecoder()
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
 
-  let buffer =  "" //holds onto incomplete fragments until the rest arrives.
+  let buffer = "";
 
-  while(true){
-    const {value, done} = await reader.read()
-    if(done) break
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
 
-    //Keeps reading chunks until stream ends
+    buffer += decoder.decode(value, {
+      stream: true,
+    });
 
-    buffer += decoder.decode(value,{
-      stream: true
-    })
+    const events = buffer.split("\n\n");
+    buffer = events.pop() || "";
 
-    const events = buffer.split("\n\n")
-
-    buffer = events.pop() || ""
-
-    for(const rawEvent of events){
-      if(!rawEvent.trim) continue
+    for (const rawEvent of events) {
+      const trimmed = rawEvent.trim();
+      if (!trimmed) continue;
       // Ignore heartbeat comments
-      if(rawEvent.startsWith(":")) continue
+      if (trimmed.startsWith(":")) continue;
 
-      let eventName = "message"
-      let data = ""
+      let eventName = "message";
+      let dataStr = "";
 
-      for (const line of rawEvent.split("\n")){
-        if(line.startsWith("event:")){
-          eventName = line.slice(6).trim()
+      for (const line of trimmed.split("\n")) {
+        if (line.startsWith("event:")) {
+          eventName = line.slice(6).trim();
+        } else if (line.startsWith("data:")) {
+          dataStr += (dataStr ? "\n" : "") + line.slice(5).trim();
         }
+      }
 
-        if (line.startsWith("data:")) {
-          data += line.slice(5).trim();
-        }
-        
-        if(!data) continue
+      if (!dataStr) continue;
 
-        try{
-          onEvent({
-            event : eventName,
-            data: JSON.parse(data)
-          })
-        }catch(e){
-          console.error("Failed to parse SSE data",data,e)
-        }
-
+      try {
+        onEvent({
+          event: eventName,
+          data: JSON.parse(dataStr),
+        });
+      } catch (e) {
+        console.error("Failed to parse SSE data:", dataStr, e);
       }
     }
   }
 }   
 
 export default function ProjectWorkspacePage() {
+  const router = useRouter();
   const params = useParams();
   const projectId = params?.id as string;
 
@@ -165,6 +161,27 @@ export default function ProjectWorkspacePage() {
   const initialPromptTriggered = useRef(false);
 
   const activeFileData =files.find((file) => file.path === activeFile) ?? null;
+
+  const isGenerating = messages.some((m) => m.sender === "agent" && m.isStreaming);
+
+  const lastAgentMessage = [...messages].reverse().find((m) => m.sender === "agent");
+
+  const activeActivityMessage = isGenerating
+    ? lastAgentMessage?.activities?.find((a) => a.status === "running")?.message ||
+      lastAgentMessage?.activities?.slice(-1)[0]?.message
+    : undefined;
+
+  const generationError =
+    !isGenerating &&
+    !previewUrl &&
+    Boolean(
+      lastAgentMessage &&
+      (lastAgentMessage.activities?.some((a) => a.status === "error") ||
+        lastAgentMessage.text?.toLowerCase().includes("went wrong") ||
+        lastAgentMessage.text?.toLowerCase().includes("failed"))
+    )
+      ? lastAgentMessage?.text || "Something went wrong while generating the website."
+      : null;
 
   const updateAgentActivity = (activity : AgentActivity) => {
     setMessages((prev)=>
@@ -236,10 +253,17 @@ export default function ProjectWorkspacePage() {
       });
 
       if (!response.ok) {
-        throw new Error("Website generation failed");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Website generation failed");
       }
 
+      let isCompleted = false;
+
       await streamSSE(response, ({ event, data }) => {
+        if (event === "error" || event === "Error") {
+          throw new Error(data?.message || "Website generation failed");
+        }
+
         if (event === "status") {
           updateAgentActivity({
             id: data.id,
@@ -270,6 +294,7 @@ export default function ProjectWorkspacePage() {
         }
 
         if (event === "generation_complete") {
+          isCompleted = true;
           if (data.previewUrl) {
             setpreviewUrl(data.previewUrl);
             localStorage.setItem(`codra_preview_${projectId}`, data.previewUrl);
@@ -287,25 +312,34 @@ export default function ProjectWorkspacePage() {
                 text: data.message || "Project generated successfully!",
                 isStreaming: false,
                 detailsOpen: false,
-                activities: message.activities.map((act)=>({
+                activities: message.activities.map((act) => ({
                   ...act,
-                  status: "completed" as ActivityStatus
-                }))
+                  status: "completed" as ActivityStatus,
+                })),
               };
             })
           );
         }
       });
+
+      if (!isCompleted) {
+        throw new Error("Generation stream disconnected unexpectedly");
+      }
     } catch (e) {
       console.error("Initial generation failed:", e);
+      const errorMessage =
+        e instanceof Error ? e.message : "Something went wrong while generating the website.";
       setMessages((prev) =>
         prev.map((message) => {
-          if (message.id !== agentMessageId) return message;
+          if (message.id !== agentMessageId || message.sender !== "agent") return message;
           return {
             ...message,
-            text: "Something went wrong while generating the website.",
+            text: errorMessage,
             isStreaming: false,
             detailsOpen: true,
+            activities: message.activities.map((act) =>
+              act.status === "running" ? { ...act, status: "error" as ActivityStatus } : act
+            ),
           };
         })
       );
@@ -315,21 +349,21 @@ export default function ProjectWorkspacePage() {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if(!chatPrompt.trim()) return
+    if (!chatPrompt.trim()) return;
 
-    const userMsg = chatPrompt.trim()
-    
-    setChatPrompt("")
+    const userMsg = chatPrompt.trim();
 
-    const userMessageId = crypto.randomUUID()
-    const agentMessageId = crypto.randomUUID()
+    setChatPrompt("");
 
-    setMessages((prev)=>[
+    const userMessageId = crypto.randomUUID();
+    const agentMessageId = crypto.randomUUID();
+
+    setMessages((prev) => [
       ...prev,
       {
         id: userMessageId,
         sender: "user",
-        text: userMsg
+        text: userMsg,
       },
       {
         id: agentMessageId,
@@ -337,64 +371,64 @@ export default function ProjectWorkspacePage() {
         text: "",
         isStreaming: true,
         detailsOpen: true,
-
         activities: [
           {
             id: "understanding",
-            message:
-              "Understanding your request",
+            message: "Understanding your request",
             status: "running",
           },
         ],
-      }
-    ])
+      },
+    ]);
 
-    try{
-      const response = await fetch(`/backend/modify-website`,{
-        method : "POST",
-        headers : {
-          "Content-Type": "application/json"
+    try {
+      const response = await fetch(`/backend/modify-website`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-        body : JSON.stringify({
+        body: JSON.stringify({
           projectId,
-          instruction:userMsg
-        })
-      })
+          instruction: userMsg,
+        }),
+      });
 
-      if(!response.ok){
-        throw new Error("Website Modification Failed")
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Website modification failed");
       }
 
-      await streamSSE(
-        response,
-       ({event,data})=>{
+      let isCompleted = false;
 
-        if(event ===  "status"){
-          updateAgentActivity({
-            id : data.id,
-            message : data.message,
-            status : data.status
-          })
+      await streamSSE(response, ({ event, data }) => {
+        if (event === "error" || event === "Error") {
+          throw new Error(data?.message || "Website modification failed");
         }
 
-        if(event === "files_updated"){
-          const updatedFiles = data.files
-          
-          setFiles(updatedFiles)
+        if (event === "status") {
+          updateAgentActivity({
+            id: data.id,
+            message: data.message,
+            status: data.status,
+          });
+        }
 
-          setActiveFile((prev)=>
-            updatedFiles.find((f:ProjectFile)=>
-              f.path === prev 
-            )
-            ? prev : (
-              updatedFiles[0]?.path ?? ""
-            )
-          )
+        if (event === "files_updated") {
+          const updatedFiles = data.files;
 
-          setPreviewRefreshKey((prev)=>prev+1)
+          setFiles(updatedFiles);
+
+          setActiveFile((prev) =>
+            updatedFiles.find((f: ProjectFile) => f.path === prev)
+              ? prev
+              : updatedFiles[0]?.path ?? ""
+          );
+
+          setPreviewRefreshKey((prev) => prev + 1);
         }
 
         if (event === "complete") {
+          isCompleted = true;
           setMessages((prev) =>
             prev.map((message) => {
               if (message.id !== agentMessageId || message.sender !== "agent") {
@@ -414,21 +448,30 @@ export default function ProjectWorkspacePage() {
             })
           );
         }
-      })
-    }catch(e){
-      console.error(e)
-      setMessages((prev)=>
-        prev.map((message)=>{
-          if(message.id !== agentMessageId) return message
+      });
+
+      if (!isCompleted) {
+        throw new Error("Modification stream disconnected unexpectedly");
+      }
+    } catch (e) {
+      console.error("Website modification error:", e);
+      const errorMessage =
+        e instanceof Error ? e.message : "Something went wrong while modifying the website.";
+      setMessages((prev) =>
+        prev.map((message) => {
+          if (message.id !== agentMessageId || message.sender !== "agent") return message;
 
           return {
-          ...message,
-          text: "Something went wrong while modifying the website",
-          isStreaming: false,
-          detailsOpen: true
-        }
+            ...message,
+            text: errorMessage,
+            isStreaming: false,
+            detailsOpen: true,
+            activities: message.activities.map((act) =>
+              act.status === "running" ? { ...act, status: "error" as ActivityStatus } : act
+            ),
+          };
         })
-      )
+      );
     }
   };
 
@@ -503,8 +546,27 @@ export default function ProjectWorkspacePage() {
         const promptParam = searchParams.get("prompt");
         if (promptParam && !initialPromptTriggered.current) {
           initialPromptTriggered.current = true;
+
+          const nextParams = new URLSearchParams(searchParams.toString());
+          nextParams.delete("prompt");
+          const remainingQuery = nextParams.toString();
+          const cleanUrl = remainingQuery
+            ? `/project/${projectId}?${remainingQuery}`
+            : `/project/${projectId}`;
+          router.replace(cleanUrl, { scroll: false });
+
           generateInitialWebsite(promptParam);
-        } else if(!promptParam && messages.length===0) {
+        } else if (!promptParam && messages.length === 0) {
+          if (searchParams.has("prompt")) {
+            const nextParams = new URLSearchParams(searchParams.toString());
+            nextParams.delete("prompt");
+            const remainingQuery = nextParams.toString();
+            const cleanUrl = remainingQuery
+              ? `/project/${projectId}?${remainingQuery}`
+              : `/project/${projectId}`;
+            router.replace(cleanUrl, { scroll: false });
+          }
+
           setMessages([
             {
               id: crypto.randomUUID(),
@@ -638,15 +700,41 @@ export default function ProjectWorkspacePage() {
               </div>
 
               {/* Canvas View */}
-              <div className="flex-1 rounded-b-lg border border-zinc-800 bg-white overflow-hidden">
+              <div
+                className={`flex-1 rounded-b-lg border border-zinc-800 ${
+                  previewUrl ? "bg-white" : "bg-[#09090b]"
+                } overflow-hidden relative`}
+              >
                 {previewUrl ? (
                   <iframe
                     src={`${previewUrl}${previewUrl.includes("?") ? "&" : "?"}refresh=${previewRefreshKey}`}
                     title={`${project.name} Preview`}
                     className="h-full w-full border-0"
                   />
-                  ) : (
-                  <div className="flex h-full items-center justify-center text-zinc-500">
+                ) : isGenerating ? (
+                  <PreviewLoading activityMessage={activeActivityMessage} />
+                ) : generationError ? (
+                  <div
+                    role="alert"
+                    className="flex h-full w-full flex-col items-center justify-center bg-[#09090b] px-4 text-center select-none"
+                  >
+                    <div className="flex flex-col items-center max-w-sm">
+                      <div className="mb-4 flex size-12 items-center justify-center rounded-2xl border border-red-500/20 bg-red-500/10 text-red-400 shadow-lg">
+                        <AlertCircle className="size-6" />
+                      </div>
+                      <h3 className="text-sm font-medium text-zinc-200">
+                        Generation encountered an error
+                      </h3>
+                      <p className="mt-1.5 text-xs text-zinc-400 leading-relaxed max-w-[300px]">
+                        {generationError}
+                      </p>
+                      <p className="mt-3 text-[11px] text-zinc-500">
+                        Check the Codra AI activity panel on the right for details.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-zinc-500 text-xs">
                     No preview available.
                   </div>
                 )}
